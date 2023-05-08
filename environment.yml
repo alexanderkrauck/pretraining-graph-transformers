@@ -1,0 +1,19 @@
+name: pgt
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - rusty1s 
+  - anaconda
+dependencies:
+  - rdkit
+  - torchvision
+  - torchaudio
+  - pytorch
+  - cudatoolkit=10.2
+  - pytorch-geometric
+  - ipython
+  - ipykernel
+  - tensorboard
+  - notebook
+  - pyyaml
