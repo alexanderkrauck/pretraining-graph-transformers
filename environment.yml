@@ -101,6 +101,7 @@ dependencies:
   - libxcb=1.15=h0b41bf4_0
   - libxml2=2.9.14=h22db469_4
   - libzlib=1.2.13=h166bdaf_4
+  - littleutils=0.2.2=py_0
   - llvm-openmp=16.0.3=h4dfa4b3_0
   - lz4-c=1.9.4=h6a678d5_0
   - markupsafe=2.1.1=py310h7f8727e_0
@@ -126,8 +127,10 @@ dependencies:
   - numexpr=2.8.4=py310h85018f9_1
   - numpy=1.24.3=py310h5f9d8c6_1
   - numpy-base=1.24.3=py310hb5e798b_1
+  - ogb=1.3.6=pyhd8ed1ab_0
   - openh264=2.1.1=h4ff587b_0
   - openssl=1.1.1t=h0b41bf4_0
+  - outdated=0.2.2=pyhd8ed1ab_0
   - packaging=23.0=py310h06a4308_0
   - pandas=1.5.3=py310h1128e8f_0
   - pandoc=2.19.2=h32600fe_2

@@ -4,4 +4,4 @@ conda install ipython ipykernel notebook pyyaml
 conda install pyg -c pyg
 conda install rdkit -c conda-forge
 conda install scikit-learn-intelex
-conda install tabulate -c conda-forge
+conda install tabulate ogb -c conda-forge
