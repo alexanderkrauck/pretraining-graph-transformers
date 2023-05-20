@@ -11,7 +11,9 @@ from torch_geometric.data.dataset import Dataset
 
 from datasets.arrow_dataset import Dataset
 
-def pyg_to_arrow(pyg_dataset: Dataset):
+from tqdm import tqdm
+
+def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
     """
     Converts a PyG dataset to a Hugging Face dataset.
     
@@ -32,7 +34,7 @@ def pyg_to_arrow(pyg_dataset: Dataset):
         data_for_arrow[key] = []
     data_for_arrow["num_nodes"] = []
 
-    for graph in pyg_dataset:
+    for graph in tqdm(pyg_dataset):
         for key in keys:
             if key == "x":
                 data_for_arrow["num_nodes"].append(len(graph[key]))
@@ -47,5 +49,9 @@ def pyg_to_arrow(pyg_dataset: Dataset):
     hf_dataset = hf_dataset.rename_column("x", "node_feat")
 
     print(f"Resulting Dataset: {hf_dataset}")
+
+    if to_disk_location is not None:
+        hf_dataset.save_to_disk(to_disk_location)
+        print(f"Saved dataset to {to_disk_location}.")
 
     return hf_dataset
