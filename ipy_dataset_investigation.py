@@ -24,6 +24,7 @@ def summarize_data(data, print_classes = True):
             print(f"{i:>3}: {int(true_array[0,i])} of {int(num_array[0,i])}. {true_array[0,i]/num_array[0,i]:>4f} are true. "\
                 f"{num_array[0,i]/len(data):.4f} of the data have this label.")
 # %%
+
 data = pyg.datasets.MoleculeNet(root_dir, "Tox21")
 summarize_data(data)
 # %% The x1 object is 1 sample of the dataset.
@@ -47,36 +48,31 @@ train_dataset[0]
 #it seems that pyg and huggingface datasets very similar for graphs in terms of structure.
 #huggingface uses dictonaries/lists, pyg uses tensors and a Data class object.
 #%%
+import utils.data as data_utils
 
-import pyarrow as pa
-from datasets.arrow_dataset import Dataset
-import torch
+arrow_ds = data_utils.pyg_to_arrow(data, to_disk_location="data/tox21/processed/arrow")
+#%%
+from transformers.models.graphormer.collating_graphormer import preprocess_item, GraphormerDataCollator
+arrow_ds_processed = arrow_ds.map(preprocess_item, batched=False)
 
-def pyg_to_arrow(pyg_dataset):
-    # Prepare data for PyArrow Table
-    data_for_arrow = {}
-
-    # Iterate over all keys in the first data object in the PyG dataset
-    keys = pyg_dataset[0].keys
-    for key in keys:
-        data_for_arrow[key] = []
-
-    for graph in pyg_dataset:
-        for key in keys:
-            feature = graph[key]
-            if isinstance(feature, torch.Tensor):
-                data_for_arrow[key].append(feature.tolist())
-            else:
-                data_for_arrow[key].append(feature)
-
-    # Convert Arrow Table to Hugging Face Dataset
-    print(data_for_arrow.keys())
-    print(len(data_for_arrow["edge_attr"]))
-    print(len(data_for_arrow["x"]))
-
-    hf_dataset = Dataset.from_dict(data_for_arrow)
-
-    return hf_dataset
+#%%
+for k in arrow_ds_processed.features.keys():
+    print(k, arrow_ds_processed[0][k])
 # %%
-arrow_ds = pyg_to_arrow(data)
+train_dataset
 # %%
+for k in train_dataset.features.keys():
+    print(k)
+    print(arrow_ds[0][k],"\n",train_dataset[0][k])
+
+# %%
+data = pyg.datasets.QM9(root_dir+"/qm9")
+
+# %%
+arrow_ds = data_utils.pyg_to_arrow(data)
+# %%
+
+print(arrow_ds[20000]["edge_index"])
+arrow_ds
+# %%
+from datasets import
