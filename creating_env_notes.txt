@@ -5,3 +5,5 @@ conda install pyg -c pyg
 conda install rdkit -c conda-forge
 conda install scikit-learn-intelex
 conda install tabulate ogb -c conda-forge
+
+pip install transformers datasets accelerate
