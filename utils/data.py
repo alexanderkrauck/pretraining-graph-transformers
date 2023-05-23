@@ -1,10 +1,22 @@
 """
-Utility classes for data handling.
+Utility functions for data handling.
+
+This file contains modified code based on Fey Matthias and Lenssen Jan E. implementation.
+
+Original Source: https://github.com/pyg-team/pytorch_geometric
+Original Code Title: Took some parts from torch_geometric/utils/smiles.py
+
+The modifications made in this file include:
+- x_map and e_map.
+- Parts of the process_molecule function.
 """
 
 __author__ = "Alexander Krauck"
 __email__ = "alexander.krauck@gmail.com"
 __date__ = "2023-05-20"
+
+
+
 
 import torch
 from torch_geometric.data.dataset import Dataset
@@ -228,7 +240,7 @@ def process_molecule(mol: Chem.Mol):
 
     for atom in mol.GetAtoms():
         x = []
-        x.append(x_map["atomic_num"].index(atom.GetAtomicNum()))
+        x.append(x_map["atomic_num"].index(atom.GetAtomicNum())) #TODO: this index call is not necessary I think
         x.append(x_map["chirality"].index(str(atom.GetChiralTag())))
         x.append(x_map["degree"].index(atom.GetTotalDegree()))
         x.append(x_map["formal_charge"].index(atom.GetFormalCharge()))
