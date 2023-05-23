@@ -9,21 +9,93 @@ __date__ = "2023-05-20"
 import torch
 from torch_geometric.data.dataset import Dataset
 
-from datasets.arrow_dataset import Dataset
+from datasets import Dataset, Value, Features, Sequence
+from rdkit import Chem
+
 
 from tqdm import tqdm
+
+x_map = {
+    "atomic_num": list(range(0, 119)),
+    "chirality": [
+        "CHI_UNSPECIFIED",
+        "CHI_TETRAHEDRAL_CW",
+        "CHI_TETRAHEDRAL_CCW",
+        "CHI_OTHER",
+        "CHI_TETRAHEDRAL",
+        "CHI_ALLENE",
+        "CHI_SQUAREPLANAR",
+        "CHI_TRIGONALBIPYRAMIDAL",
+        "CHI_OCTAHEDRAL",
+    ],
+    "degree": list(range(0, 11)),
+    "formal_charge": list(range(-5, 7)),
+    "num_hs": list(range(0, 9)),
+    "num_radical_electrons": list(range(0, 5)),
+    "hybridization": [
+        "UNSPECIFIED",
+        "S",
+        "SP",
+        "SP2",
+        "SP3",
+        "SP3D",
+        "SP3D2",
+        "OTHER",
+    ],
+    "is_aromatic": [False, True],
+    "is_in_ring": [False, True],
+}
+
+e_map = {
+    "bond_type": [
+        "UNSPECIFIED",
+        "SINGLE",
+        "DOUBLE",
+        "TRIPLE",
+        "QUADRUPLE",
+        "QUINTUPLE",
+        "HEXTUPLE",
+        "ONEANDAHALF",
+        "TWOANDAHALF",
+        "THREEANDAHALF",
+        "FOURANDAHALF",
+        "FIVEANDAHALF",
+        "AROMATIC",
+        "IONIC",
+        "HYDROGEN",
+        "THREECENTER",
+        "DATIVEONE",
+        "DATIVE",
+        "DATIVEL",
+        "DATIVER",
+        "OTHER",
+        "ZERO",
+    ],
+    "stereo": [
+        "STEREONONE",
+        "STEREOANY",
+        "STEREOZ",
+        "STEREOE",
+        "STEREOCIS",
+        "STEREOTRANS",
+    ],
+    "is_conjugated": [False, True],
+}
+
 
 def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
     """
     Converts a PyG dataset to a Hugging Face dataset.
-    
+
     Adds a column "num_nodes" to the Hugging Face dataset, which contains the number of nodes for each graph.
     Also renames the column "x" to "node_feat" to comply with huggingface standards.
 
     Args
     ----
     pyg_dataset: torch_geometric.data.dataset.Dataset
-        PyG dataset to convert."""
+        PyG dataset to convert.
+    to_disk_location: str
+        Path to save the dataset to (the directory)."""
 
     # Prepare data for PyArrow Table
     data_for_arrow = {}
@@ -55,3 +127,132 @@ def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
         print(f"Saved dataset to {to_disk_location}.")
 
     return hf_dataset
+
+
+def sdf_to_arrow(
+    sdf_file: str, to_disk_location: str = None, cache_dir: str = "./data/huggingface"
+):
+    """
+    Converts a sdf file to a Hugging Face dataset.
+
+    Args
+    ----
+    sdf_file: str
+        Path to sdf file to convert.
+    to_disk_location: str
+        Path to save the dataset to (the directory).
+    cache_dir: str
+        Path to cache directory for Hugging Face dataset."""
+
+    features = Features(
+        {
+            "edge_attr": Sequence(
+                feature=Sequence(
+                    feature=Value(dtype="int64", id=None), length=-1, id=None
+                ),
+                length=-1,
+                id=None,
+            ),
+            "node_feat": Sequence(
+                feature=Sequence(
+                    feature=Value(dtype="int64", id=None), length=-1, id=None
+                ),
+                length=-1,
+                id=None,
+            ),
+            "edge_index": Sequence(
+                feature=Sequence(
+                    feature=Value(dtype="int64", id=None), length=-1, id=None
+                ),
+                length=-1,
+                id=None,
+            ),
+            "smiles": Value("string"),
+            "num_nodes": Value("int64"),
+        }
+    )
+
+    dataset = Dataset.from_generator(
+        generate_from_sdf,
+        gen_kwargs={"sdf_file": sdf_file},
+        features=features,
+        cache_dir=cache_dir,
+    )
+    dataset.save_to_disk(to_disk_location)
+
+
+def generate_from_sdf(sdf_file):
+    """
+    Generate processed molecule representations from an SDF file.
+
+    Args
+    ----
+    sdf_file: str
+        Path to the SDF file to generate molecules from.
+
+    Yields:
+        Processed molecule dictionary.
+    """
+
+    suppl = Chem.SDMolSupplier(sdf_file, removeHs=True, sanitize=True)
+    for mol in suppl:
+        if mol is not None:
+            yield process_molecule(mol)
+
+
+def process_molecule(mol: Chem.Mol):
+    """
+    Process an RDKit molecule and extract features for graph representation.
+
+    Args
+    ----
+    mol: Chem.Mol
+        The RDKit molecule object to process.
+
+    Returns
+    -------
+    dict: A dictionary containing the extracted features for graph representation.
+        The dictionary contains the following keys:
+        - 'edge_attr': A list of edge attributes.
+        - 'node_feat': A list of node features.
+        - 'smiles': The SMILES representation of the molecule.
+        - 'num_nodes': The number of nodes (atoms) in the molecule.
+    """
+
+    return_dict = {
+        "edge_attr": [],
+        "node_feat": [],
+        "smiles": Chem.MolToSmiles(mol),
+        "num_nodes": 0,
+    }
+
+    for atom in mol.GetAtoms():
+        x = []
+        x.append(x_map["atomic_num"].index(atom.GetAtomicNum()))
+        x.append(x_map["chirality"].index(str(atom.GetChiralTag())))
+        x.append(x_map["degree"].index(atom.GetTotalDegree()))
+        x.append(x_map["formal_charge"].index(atom.GetFormalCharge()))
+        x.append(x_map["num_hs"].index(atom.GetTotalNumHs()))
+        x.append(x_map["num_radical_electrons"].index(atom.GetNumRadicalElectrons()))
+        x.append(x_map["hybridization"].index(str(atom.GetHybridization())))
+        x.append(x_map["is_aromatic"].index(atom.GetIsAromatic()))
+        x.append(x_map["is_in_ring"].index(atom.IsInRing()))
+        return_dict["node_feat"].append(x)
+
+    edge_indices_send, edge_indices_rec = [], []
+    for bond in mol.GetBonds():
+        i = bond.GetBeginAtomIdx()
+        j = bond.GetEndAtomIdx()
+
+        e = []
+        e.append(e_map["bond_type"].index(str(bond.GetBondType())))
+        e.append(e_map["stereo"].index(str(bond.GetStereo())))
+        e.append(e_map["is_conjugated"].index(bond.GetIsConjugated()))
+
+        edge_indices_send += [i, j]
+        edge_indices_rec += [j, i]
+        return_dict["edge_attr"].extend([e, e])
+
+    return_dict["num_nodes"] = len(return_dict["node_feat"])
+    return_dict["edge_index"] = [edge_indices_send, edge_indices_rec]
+    return return_dict
