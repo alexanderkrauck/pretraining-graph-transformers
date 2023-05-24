@@ -35,21 +35,29 @@ dataset_processed = dataset.map(preprocess_item, batched=False)
 dataset_processed["train"][0].keys()
 
 # %%
-from transformers import GraphormerForGraphClassification
+from transformers import GraphormerForGraphClassification, GraphormerConfig
 
 model = GraphormerForGraphClassification.from_pretrained(
     "clefourrier/pcqm4mv2_graphormer_base",
     num_classes=2, # num_classes for the downstream task 
     ignore_mismatched_sizes=True,
 ).cuda()
+
+cnfg = GraphormerConfig(
+    num_classes = 2,
+    embedding_dim = 128,
+    num_attention_heads = 8,
+    num_hidden_layers = 8
+)
+model = GraphormerForGraphClassification(cnfg)
 # %%
 from transformers import TrainingArguments, Trainer
 
 training_args = TrainingArguments(
     "graph-classification",
     logging_dir="graph-classification",
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
     auto_find_batch_size=False, # batch size can be changed automatically to prevent OOMs
     gradient_accumulation_steps=10,
     dataloader_num_workers=4, #1, 

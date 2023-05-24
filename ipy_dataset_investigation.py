@@ -44,13 +44,16 @@ dataset = dataset.shuffle(seed=0)
 train_dataset = dataset["train"]
 
 train_dataset[0]
-
 #it seems that pyg and huggingface datasets very similar for graphs in terms of structure.
 #huggingface uses dictonaries/lists, pyg uses tensors and a Data class object.
 #%%
 import utils.data as data_utils
 
 arrow_ds = data_utils.pyg_to_arrow(data, to_disk_location="data/tox21/processed/arrow")
+
+#%%
+arrow_ds[0]
+
 #%%
 from transformers.models.graphormer.collating_graphormer import preprocess_item, GraphormerDataCollator
 arrow_ds_processed = arrow_ds.map(preprocess_item, batched=False)
@@ -72,7 +75,29 @@ data = pyg.datasets.QM9(root_dir+"/qm9")
 arrow_ds = data_utils.pyg_to_arrow(data)
 # %%
 
-print(arrow_ds[20000]["edge_index"])
-arrow_ds
+print(arrow_ds[0])
 # %%
-from datasets import
+import numpy as np
+bonds = []
+for i in range(len(arrow_ds)):
+    arr = np.array(arrow_ds[i]["edge_attr"])
+    if len(arr.shape) != 1:
+        type = max(arr[:,3])
+        if type not in bonds:
+            bonds.append(type)
+bonds
+#for i in range(10):
+#    print(train_dataset[i]["edge_attr"], "\n")
+# %%
+data[0]["x"]
+# %%
+from torch_geometric.utils import from_smiles
+from rdkit import Chem
+smiles = "CCOc1ccc2nc(S(N)(=O)=O)sc2c1"
+from_smiles(smiles)["edge_attr"]
+# %%
+mol = Chem.MolFromSmiles(smiles, AromaticBonds=True)
+# %%
+for bond in mol.GetBonds():
+    print(bond.GetBondType(), bond.GetBondTypeAsDouble())
+

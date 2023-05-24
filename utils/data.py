@@ -94,7 +94,7 @@ e_map = {
     "is_conjugated": [False, True],
 }
 
-
+#TODO: unify the features. node_feat and edge_attr should be the same as when loading sdf files.
 def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
     """
     Converts a PyG dataset to a Hugging Face dataset.
@@ -140,7 +140,7 @@ def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
 
     return hf_dataset
 
-
+#TODO: add conformers or coordinates to the dataset.
 def sdf_to_arrow(
     sdf_file: str, to_disk_location: str = None, cache_dir: str = "./data/huggingface"
 ):
