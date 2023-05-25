@@ -115,5 +115,7 @@ class ZincWithRDKit(ZINC):
             # Optimize the generated conformer
             AllChem.MMFFOptimizeMolecule(mol)
 
+            mols.append(mol)
+
         RDLogger.EnableLog("rdApp.warning")
         return mols
