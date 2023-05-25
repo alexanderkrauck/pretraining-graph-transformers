@@ -205,6 +205,8 @@ def rdkit_to_arrow(
     )
     dataset.save_to_disk(to_disk_location)
 
+    return dataset
+
 
 def sdf_to_arrow(
     sdf_file: str, to_disk_location: str = None, cache_dir: str = "./data/huggingface"
@@ -263,6 +265,8 @@ def sdf_to_arrow(
         cache_dir=cache_dir,
     )
     dataset.save_to_disk(to_disk_location)
+
+    return dataset
 
 
 def generate_from_sdf(sdf_file):
