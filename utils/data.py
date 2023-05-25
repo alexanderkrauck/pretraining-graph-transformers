@@ -24,10 +24,11 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import rdkit.RDLogger as RDLogger
 
+import pandas as pd
 
 from tqdm import tqdm
 
-from typing import Iterable
+from typing import Iterable, Optional
 
 x_map = {
     "atomic_num": list(range(0, 119)),
@@ -144,6 +145,34 @@ def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
     return hf_dataset
 
 
+def load_smiles_dataset(dataset_location: str, smiles_column: Optional[int] = None):
+    """
+    Loads a dataset from a csv file.
+
+    Args
+    ----
+    dataset_location: str
+        Path to the csv file.
+    smiles_column: int
+        Column index of the SMILES strings."""
+
+    dataset = pd.read_csv(dataset_location)
+    if smiles_column is None:
+        if "smiles" in dataset.columns:
+            smiles_list = dataset["smiles"].tolist()
+        else:
+            raise ValueError("No smiles column found. Please specify the column index.")
+    else:
+        smiles_list = dataset.iloc[:, smiles_column].tolist()
+    mol_list = []
+    print("Converting SMILES to rdkit molecules.")
+    for smiles in tqdm(smiles_list):
+        mol = Chem.MolFromSmiles(smiles)
+        mol_list.append(mol)
+
+    return mol_list
+
+
 # TODO: consider adding a way to add target features to the dataset. like for tox21.
 def rdkit_to_arrow(
     rdkit_iterable: Iterable[Chem.Mol],
@@ -206,6 +235,140 @@ def rdkit_to_arrow(
     dataset.save_to_disk(to_disk_location)
 
     return dataset
+
+
+def csv_to_arrow(
+    csv_file: str,
+    to_disk_location: str = None,
+    cache_dir: str = "./data/huggingface",
+    include_conformer: bool = True,
+    **kwargs,
+):
+    """
+    Converts a csv file to a Hugging Face dataset.
+
+    Args
+    ----
+    csv_file: str
+        Path to the csv file.
+    to_disk_location: str
+        Path to save the dataset to (the directory).
+    cache_dir: str
+        Path to cache directory for Hugging Face dataset.
+    include_conformer: bool
+        Whether to include the conformer in the dataset.
+    **kwargs:
+        Additional keyword arguments for customizing the CSV reading process.
+        Example: smiles_column=1, has_header=True.
+    """
+
+    features_dict = {
+        "edge_attr": Sequence(
+            feature=Sequence(feature=Value(dtype="int64", id=None), length=-1, id=None),
+            length=-1,
+            id=None,
+        ),
+        "node_feat": Sequence(
+            feature=Sequence(feature=Value(dtype="int64", id=None), length=-1, id=None),
+            length=-1,
+            id=None,
+        ),
+        "edge_index": Sequence(
+            feature=Sequence(feature=Value(dtype="int64", id=None), length=-1, id=None),
+            length=-1,
+            id=None,
+        ),
+        "smiles": Value("string"),
+        "num_nodes": Value("int64"),
+    }
+
+    if include_conformer:
+        features_dict["pos"] = Sequence(
+            feature=Sequence(
+                feature=Value(dtype="float32", id=None), length=-1, id=None
+            ),
+            length=-1,
+            id=None,
+        )
+
+    features = Features(features_dict)
+
+    dataset = Dataset.from_generator(
+        generate_from_csv,
+        gen_kwargs={
+            "csv_file": csv_file,
+            "include_conformer": include_conformer,
+            **kwargs,
+        },
+        features=features,
+        cache_dir=cache_dir,
+    )
+    dataset.save_to_disk(to_disk_location)
+
+    return dataset
+
+
+def generate_from_csv(
+    csv_file,
+    smiles_column: Optional[int] = None,
+    has_header: Optional[bool] = True,
+    include_conformer: Optional[bool] = True,
+):
+    """
+    Generates a Hugging Face dataset from a csv file.
+
+    Args
+    ----
+    csv_file: str
+        Path to the csv file.
+    smiles_column: int
+        Column index of the SMILES strings.
+    has_header: bool
+        Whether the csv file has a header or not.
+    """
+
+    with open(csv_file, "r") as file:
+        if has_header:
+            header = file.readline().strip().split(",")
+            if smiles_column is None:
+                assert (
+                    "smiles" in header
+                ), "If the csv file has a header, it must contain a smiles column."
+                smiles_column = header.index("smiles")
+        else:
+            assert (
+                smiles_column is not None
+            ), "If the csv file does not have a header, you must specify the smiles column."
+
+        line_count = 0
+        RDLogger.DisableLog("rdApp.warning")
+        for line in file:
+            line_count += 1
+
+            line = line.strip()
+            if line == "":
+                continue
+            smiles = line.split(",")[smiles_column]
+
+            mol = Chem.MolFromSmiles(smiles)
+
+            if include_conformer:
+                try:
+                    AllChem.EmbedMolecule(mol)
+                    AllChem.MMFFOptimizeMolecule(
+                        mol
+                    )  # Optimize the generated conformer
+                    mol.GetConformer()
+                except ValueError:
+                    print(
+                        f"Could not generate conformer for molecule {line_count} with SMILES {smiles}."
+                    )
+                    continue
+
+            if mol is not None:
+                yield process_molecule(mol, include_conformer=include_conformer)
+
+        RDLogger.EnableLog("rdApp.warning")
 
 
 def sdf_to_arrow(
@@ -306,7 +469,7 @@ def generate_from_rdkit(rdkit_iterable: Iterable[Chem.Mol]):
             yield process_molecule(mol)
 
 
-def process_molecule(mol: Chem.Mol):
+def process_molecule(mol: Chem.Mol, include_conformer: bool = True):
     """
     Process an RDKit molecule and extract features for graph representation.
 
@@ -314,6 +477,8 @@ def process_molecule(mol: Chem.Mol):
     ----
     mol: Chem.Mol
         The RDKit molecule object to process.
+    include_conformer: bool
+        Whether to include the 3D conformer of the molecule.
 
     Returns
     -------
@@ -363,7 +528,8 @@ def process_molecule(mol: Chem.Mol):
         edge_indices_rec += [j, i]
         return_dict["edge_attr"].extend([e, e])
 
-    return_dict["pos"] = mol.GetConformer().GetPositions().tolist()
+    if include_conformer:
+        return_dict["pos"] = mol.GetConformer().GetPositions().tolist()
 
     return_dict["num_nodes"] = len(return_dict["node_feat"])
     return_dict["edge_index"] = [edge_indices_send, edge_indices_rec]
