@@ -16,17 +16,18 @@ __email__ = "alexander.krauck@gmail.com"
 __date__ = "2023-05-20"
 
 
-
-
 import torch
 from torch_geometric.data.dataset import Dataset
 
 from datasets import Dataset, Value, Features, Sequence
 from rdkit import Chem
 from rdkit.Chem import AllChem
+import rdkit.RDLogger as RDLogger
 
 
 from tqdm import tqdm
+
+from typing import Iterable
 
 x_map = {
     "atomic_num": list(range(0, 119)),
@@ -95,39 +96,8 @@ e_map = {
     "is_conjugated": [False, True],
 }
 
-#TODO: check correctness of this mapping
-zinc_mapping = {
-    0: 6,   # 'C': 0 -> Carbon atomic number is 6
-    1: 8,   # 'O': 1 -> Oxygen atomic number is 8
-    2: 7,   # 'N': 2 -> Nitrogen atomic number is 7
-    3: 9,   # 'F': 3 -> Fluorine atomic number is 9
-    4: 6,   # 'C H1': 4 -> Carbon atomic number is 6
-    5: 16,  # 'S': 5 -> Sulfur atomic number is 16
-    6: 17,  # 'Cl': 6 -> Chlorine atomic number is 17
-    7: 8,   # 'O -': 7 -> Oxygen atomic number is 8
-    8: 7,   # 'N H1 +': 8 -> Nitrogen atomic number is 7
-    9: 35,  # 'Br': 9 -> Bromine atomic number is 35
-    10: 7,  # 'N H3 +': 10 -> Nitrogen atomic number is 7
-    11: 7,  # 'N H2 +': 11 -> Nitrogen atomic number is 7
-    12: 7,  # 'N +': 12 -> Nitrogen atomic number is 7
-    13: 7,  # 'N -': 13 -> Nitrogen atomic number is 7
-    14: 16, # 'S -': 14 -> Sulfur atomic number is 16
-    15: 53, # 'I': 15 -> Iodine atomic number is 53
-    16: 15, # 'P': 16 -> Phosphorus atomic number is 15
-    17: 8,  # 'O H1 +': 17 -> Oxygen atomic number is 8
-    18: 7,  # 'N H1 -': 18 -> Nitrogen atomic number is 7
-    19: 8,  # 'O +': 19 -> Oxygen atomic number is 8
-    20: 16, # 'S +': 20 -> Sulfur atomic number is 16
-    21: 15, # 'P H1': 21 -> Phosphorus atomic number is 15
-    22: 15, # 'P H2': 22 -> Phosphorus atomic number is 15
-    23: 6,  # 'C H2 -': 23 -> Carbon atomic number is 6
-    24: 15, # 'P +': 24 -> Phosphorus atomic number is 15
-    25: 16, # 'S H1 +': 25 -> Sulfur atomic number is 16
-    26: 6,  # 'C H1 -': 26 -> Carbon atomic number is 6
-    27: 15  # 'P H1 +': 27 -> Phosphorus atomic number is 15
-}
 
-#TODO: unify the features. node_feat and edge_attr should be the same as when loading sdf files.
+# TODO: unify the features. node_feat and edge_attr should be the same as when loading sdf files.
 def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
     """
     Converts a PyG dataset to a Hugging Face dataset.
@@ -173,43 +143,69 @@ def pyg_to_arrow(pyg_dataset: Dataset, to_disk_location: str = None):
 
     return hf_dataset
 
-#TODO: consider moving this whole thing into a separate file where we create a new dataset class that inherits from PyG's ZINC dataset class.
-def pyg_to_rdkit(data):
 
-    # Create an RDKit molecule from the graph
-    mol = Chem.RWMol()
+# TODO: consider adding a way to add target features to the dataset. like for tox21.
+def rdkit_to_arrow(
+    rdkit_iterable: Iterable[Chem.Mol],
+    to_disk_location: str = None,
+    cache_dir: str = "./data/huggingface",
+):
+    """
+    Converts a sdf file to a Hugging Face dataset.
 
-    # Add atoms to the molecule
-    for features in data.x:
-        atomic_num = zinc_mapping[int(features[0])]  # Assuming the atomic number is in the first element of x
-        atom = Chem.Atom(atomic_num)
-        mol.AddAtom(atom)
+    Args
+    ----
+    rdkit_iterable: Iterable[Chem.Mol]
+        Iterable of molecules from rdkit.
+    to_disk_location: str
+        Path to save the dataset to (the directory).
+    cache_dir: str
+        Path to cache directory for Hugging Face dataset."""
 
-    # Add bonds to the molecule
-    for idx, edge in enumerate(data.edge_index.T):
-        i, j = edge[0].item(), edge[1].item()
-        if i < j: #because the edge_index is undirected, we only need to add the bond once.
-            continue
-        bond_type = Chem.rdchem.BondType.values[data.edge_attr[idx].item()]  # Assuming the bond type is in the first element of edge_attr
-        mol.AddBond(i, j, order=bond_type)
+    features = Features(
+        {
+            "edge_attr": Sequence(
+                feature=Sequence(
+                    feature=Value(dtype="int64", id=None), length=-1, id=None
+                ),
+                length=-1,
+                id=None,
+            ),
+            "node_feat": Sequence(
+                feature=Sequence(
+                    feature=Value(dtype="int64", id=None), length=-1, id=None
+                ),
+                length=-1,
+                id=None,
+            ),
+            "edge_index": Sequence(
+                feature=Sequence(
+                    feature=Value(dtype="int64", id=None), length=-1, id=None
+                ),
+                length=-1,
+                id=None,
+            ),
+            "pos": Sequence(
+                feature=Sequence(
+                    feature=Value(dtype="float32", id=None), length=-1, id=None
+                ),
+                length=-1,
+                id=None,
+            ),
+            "smiles": Value("string"),
+            "num_nodes": Value("int64"),
+        }
+    )
 
-    # Convert the RDKit molecule to a non-editable molecule
-    mol.UpdatePropertyCache(strict=False)
-    Chem.GetSSSR(mol)
-    try:
-        Chem.SanitizeMol(mol)
-    except Chem.rdchem.AtomValenceException:
-        print("Sanitization failed. Skipping molecule.")
-        return None
+    dataset = Dataset.from_generator(
+        generate_from_rdkit,
+        gen_kwargs={"rdkit_iterable": rdkit_iterable},
+        features=features,
+        cache_dir=cache_dir,
+    )
+    dataset.save_to_disk(to_disk_location)
 
-    AllChem.EmbedMolecule(mol)
 
-    # Optimize the generated conformer
-    AllChem.MMFFOptimizeMolecule(mol)
-
-    return mol
-
-#TODO: consider adding a way to add target features to the dataset. like for tox21.
 def sdf_to_arrow(
     sdf_file: str, to_disk_location: str = None, cache_dir: str = "./data/huggingface"
 ):
@@ -288,6 +284,23 @@ def generate_from_sdf(sdf_file):
             yield process_molecule(mol)
 
 
+def generate_from_rdkit(rdkit_iterable: Iterable[Chem.Mol]):
+    """
+    Generate processed molecule representations from a list of RDKit molecules.
+
+    Args
+    ----
+    rdkit_iterable: Iterable[Chem.Mol]
+        A iterable of RDKit molecules to generate representations from.
+
+    Yields:
+        Processed molecule dictionary.
+    """
+
+    for mol in rdkit_iterable:
+        if mol is not None:
+            yield process_molecule(mol)
+
 
 def process_molecule(mol: Chem.Mol):
     """
@@ -319,7 +332,9 @@ def process_molecule(mol: Chem.Mol):
 
     for atom in mol.GetAtoms():
         x = []
-        x.append(x_map["atomic_num"].index(atom.GetAtomicNum())) #TODO: this index call is not necessary I think
+        x.append(
+            x_map["atomic_num"].index(atom.GetAtomicNum())
+        )  # TODO: this index call is not necessary I think
         x.append(x_map["chirality"].index(str(atom.GetChiralTag())))
         x.append(x_map["degree"].index(atom.GetTotalDegree()))
         x.append(x_map["formal_charge"].index(atom.GetFormalCharge()))
