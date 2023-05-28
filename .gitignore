@@ -193,4 +193,5 @@ pyrightconfig.json
 #Directories not to commit
 /data
 /repos
+/runs
 /.*
