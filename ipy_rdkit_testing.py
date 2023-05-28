@@ -60,3 +60,16 @@ mol_list = zinc.to_rdkit_molecule_list()
 from utils import data as data_utils
 data_utils.rdkit_to_arrow(mol_list, "data/ZINC/processed/arrow")
 # %%
+from rdkit import Chem
+from rdkit.Chem.rdDistGeom import GetMoleculeBoundsMatrix
+
+# Load molecule
+
+mol = Chem.MolFromSmiles('CCOc1ccc2nc(S(N)(=O)=O)sc2c1')
+
+# Generate distance bounds
+
+GetMoleculeBoundsMatrix(mol)
+# %%
+mol
+# %%
