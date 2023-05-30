@@ -1,4 +1,7 @@
 # %%
+import os
+os.chdir("..")
+
 from rdkit import Chem
 
 from utils import data as data_utils

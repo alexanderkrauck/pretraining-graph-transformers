@@ -1,7 +1,11 @@
 #%%
+import os
+os.chdir("..")
+
 import torch_geometric as pyg
 import numpy as np
 from ogb.lsc import PCQM4Mv2Dataset
+
 root_dir = "data"
 
 def summarize_data(data, print_classes = True):

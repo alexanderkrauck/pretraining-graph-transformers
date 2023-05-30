@@ -1,4 +1,9 @@
-# %%
+#TODO: consider adding the download of the data to this script
+#TODO: consider adding the huggingface data preprocessing to this script
+#%%
+import os
+os.chdir("..")
+
 from utils import data as data_utils
 import torch_geometric as pyg
 from utils import ZincWithRDKit
@@ -43,6 +48,7 @@ dataset_dict = DatasetDict(
         "test": ds_test,
     }
 )
+#%%
 dataset_dict.save_to_disk("data/tox21_original/processed/arrow")
 # %%
 ds = data_utils.csv_to_arrow(

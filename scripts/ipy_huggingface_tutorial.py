@@ -1,5 +1,8 @@
 #from https://huggingface.co/blog/graphml-classification
 #%%
+import os
+os.chdir("..")
+
 from datasets import load_dataset
 
 # There is only one split on the hub
@@ -49,15 +52,15 @@ cnfg = GraphormerConfig(
     num_attention_heads = 8,
     num_hidden_layers = 8
 )
-model = GraphormerForGraphClassification(cnfg)
+model = GraphormerForGraphClassification(cnfg).cuda()
 # %%
 from transformers import TrainingArguments, Trainer
 
 training_args = TrainingArguments(
     "graph-classification",
     logging_dir="graph-classification",
-    per_device_train_batch_size=16,
-    per_device_eval_batch_size=16,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
     auto_find_batch_size=False, # batch size can be changed automatically to prevent OOMs
     gradient_accumulation_steps=10,
     dataloader_num_workers=4, #1, 
@@ -67,13 +70,23 @@ training_args = TrainingArguments(
     push_to_hub=False,
 )
 # %%
-collator = GraphormerDataCollator(on_the_fly_processing=False)
+def preproc_weak(item, keep_features=False):
+    if "labels" not in item:
+        item["labels"] = item["y"]
+    return item
+
+test_dataset = dataset["train"].map(preproc_weak, batched=False)
+
+#%%
+from torch.utils.data import DataLoader
+collator = GraphormerDataCollator(on_the_fly_processing=True)
+
 
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=dataset_processed["train"],
-    eval_dataset=dataset_processed["validation"],
+    train_dataset=dataset["train"],
+    eval_dataset=dataset["validation"],
     data_collator=collator,
 )
 # %%
@@ -81,4 +94,14 @@ train_results = trainer.train()
 # %%
 paramsum = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(paramsum)
+# %%
+processed = collator([dataset["train"][i] for i in range(20)])
+# %%
+for key in processed.keys():
+    print(key, type(processed[key]), processed[key].shape)
+# %%
+[dataset["train"][i]["num_nodes"] for i in range(20)]
+# %%
+[len(dataset["train"][i]["edge_attr"]) for i in range(20)]
+
 # %%
