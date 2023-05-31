@@ -194,4 +194,5 @@ pyrightconfig.json
 /data
 /repos
 /runs
+/investigations
 /.*
