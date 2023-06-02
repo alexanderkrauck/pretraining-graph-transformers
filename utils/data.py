@@ -16,10 +16,12 @@ __email__ = "alexander.krauck@gmail.com"
 __date__ = "2023-05-20"
 
 
+from os.path import join
+
 import torch
 from torch_geometric.data.dataset import Dataset
 
-from datasets import Dataset, Value, Features, Sequence
+from datasets import Dataset, Value, Features, Sequence, load_from_disk, DatasetDict
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import rdkit.RDLogger as RDLogger
@@ -29,6 +31,9 @@ import pandas as pd
 from tqdm import tqdm
 
 from typing import Iterable, Optional, List
+
+from utils import graphormer_data_collator_improved as graphormer_collator_utils
+
 
 x_map = {
     "atomic_num": list(range(0, 119)),
@@ -504,3 +509,22 @@ def process_molecule(mol: Chem.Mol, include_conformer: bool = True):
     return_dict["num_nodes"] = len(return_dict["node_feat"])
     return_dict["edge_index"] = [edge_indices_send, edge_indices_rec]
     return return_dict
+
+
+def map_arrow_dataset_from_disk(dataset_location: str, is_dataset_dict: bool = False):
+    """"""
+
+    source_dataset_location = join(dataset_location, "arrow")
+    destination_dataset_location = join(dataset_location, "arrow_processed")
+
+
+    if is_dataset_dict:
+        dataset = DatasetDict.load_from_disk(source_dataset_location)
+    else:
+        dataset = load_from_disk(source_dataset_location)
+
+    dataset = dataset.map(graphormer_collator_utils.preprocess_item, batched=False, load_from_cache_file = False)
+
+    dataset.save_to_disk(destination_dataset_location)
+
+
