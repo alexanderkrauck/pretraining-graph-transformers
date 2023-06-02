@@ -30,29 +30,29 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
             "-xf",
             join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf.tar.gz"),
             "-C",
-            join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
+            join(data_dir, "pcqm4mv2/raw/"),
         ]
     )
 
-    # load tox21 original data
-    print("downloading tox21 original data")
-    subprocess.run(
-        [
-            "wget",
-            "-P",
-            join(data_dir, "tox21_original/raw"),
-            "http://bioinf.jku.at/research/DeepTox/tox21_compoundData.csv",
-        ]
-    )
-    subprocess.run(
-        [
-            "wget",
-            "-P",
-            join(data_dir, "tox21_original/raw"),
-            "http://bioinf.jku.at/research/DeepTox/tox21.sdf.gz",
-        ]
-    )
-    subprocess.run(["gunzip", join(data_dir, "tox21_original/raw/tox21.sdf.gz")])
+    # # load tox21 original data (commented because does not work on bioinf servers, same host)
+    # print("downloading tox21 original data")
+    # subprocess.run(
+    #     [
+    #         "wget",
+    #         "-P",
+    #         join(data_dir, "tox21_original/raw"),
+    #         "http://bioinf.jku.at/research/DeepTox/tox21_compoundData.csv",
+    #     ]
+    # )
+    # subprocess.run(
+    #     [
+    #         "wget",
+    #         "-P",
+    #         join(data_dir, "tox21_original/raw"),
+    #         "http://bioinf.jku.at/research/DeepTox/tox21.sdf.gz",
+    #     ]
+    # )
+    # subprocess.run(["gunzip", join(data_dir, "tox21_original/raw/tox21.sdf.gz")])
 
     # load tox21 data
     print("downloading tox21 data")
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
         "-d",
-        "--data",
+        "--data_dir",
         help="Directory where all data should be stored.",
         default=f"data",
         type=str,
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "-c",
-        "--conformers",
+        "--create_conformers",
         help="whether or not conformers will be created if no 3d conig is here yet.",
         default=False,
         type=bool,
