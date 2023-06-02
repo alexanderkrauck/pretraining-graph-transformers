@@ -225,27 +225,32 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
 
     print("mapping pcqm4mv2 data to input format to the model")
     data_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "pcqm4mv2/processed", is_dataset_dict=False)
+        join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False
     )
 
     print("mapping tox21_original data to input format to the model")
     data_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "tox21_original/processed", is_dataset_dict=True)
+        join(data_dir, "tox21_original/processed"), is_dataset_dict=True
     )
 
     print("mapping tox21 data to input format to the model")
     data_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "tox21/processed", is_dataset_dict=False)
+        join(data_dir, "tox21/processed"), is_dataset_dict=False
     )
 
     print("mapping pcba data to input format to the model")
     data_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "qm9/processed", is_dataset_dict=False)
+        join(data_dir, "qm9/processed"), is_dataset_dict=False
     )
 
     print("mapping qm9 data to input format to the model")
     data_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "ZINC/processed", is_dataset_dict=True)
+        join(data_dir, "ZINC/processed"), is_dataset_dict=True
+    )
+
+    print("mapping pcba data to input format to the model")
+    data_utils.map_arrow_dataset_from_disk(
+        join(data_dir, "pcba/processed"), is_dataset_dict=False
     )
 
     print("\nData loading finished!\n")
