@@ -87,8 +87,8 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         subprocess.run(["gunzip", join(data_dir, "pcba/raw/pcba.csv.gz")])
 
     # load qm9 data
-    print("downloading qm9 data")
-    if not os.path.isfile(join(data_dir, "qm9/raw/qdb9.sdf")):
+    if not os.path.isfile(join(data_dir, "qm9/raw/QM9_README")):
+        print("downloading qm9 data")
         subprocess.run(
             [
                 "wget",
@@ -103,7 +103,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         subprocess.run(["rm", join(data_dir, "qm9/raw/qm9.zip")])
 
     # load zinc data
-    print("downloading zinc data")
+    print("downloading zinc data (if not downloaded already)")
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="train")
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="val")
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="test")
