@@ -14,84 +14,93 @@ from argparse import ArgumentParser
 def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     print(f"loading all data to {data_dir}. This may take a while.")
 
-    # load pcqm4mv2 data
-    print("downloading pcqm4mv2 data")
-    subprocess.run(
-        [
-            "wget",
-            "-P",
-            join(data_dir, "pcqm4mv2/raw"),
-            "http://ogb-data.stanford.edu/data/lsc/pcqm4m-v2-train.sdf.tar.gz",
-        ]
-    )
-    subprocess.run(
-        [
-            "tar",
-            "-xf",
-            join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf.tar.gz"),
-            "-C",
-            join(data_dir, "pcqm4mv2/raw/"),
-        ]
-    )
+    #TODO: consider adding checks for the data already being downloaded.
+    #Low priority tho, as this is not a focus of the project.
 
-    # # load tox21 original data (commented because does not work on bioinf servers, same host)
-    # print("downloading tox21 original data")
-    # subprocess.run(
-    #     [
-    #         "wget",
-    #         "-P",
-    #         join(data_dir, "tox21_original/raw"),
-    #         "http://bioinf.jku.at/research/DeepTox/tox21_compoundData.csv",
-    #     ]
-    # )
-    # subprocess.run(
-    #     [
-    #         "wget",
-    #         "-P",
-    #         join(data_dir, "tox21_original/raw"),
-    #         "http://bioinf.jku.at/research/DeepTox/tox21.sdf.gz",
-    #     ]
-    # )
-    # subprocess.run(["gunzip", join(data_dir, "tox21_original/raw/tox21.sdf.gz")])
+    # load pcqm4mv2 data
+
+    if not os.path.isfile(join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf")):
+        print("downloading pcqm4mv2 data")
+        subprocess.run(
+            [
+                "wget",
+                "-P",
+                join(data_dir, "pcqm4mv2/raw"),
+                "http://ogb-data.stanford.edu/data/lsc/pcqm4m-v2-train.sdf.tar.gz",
+            ]
+        )
+        subprocess.run(
+            [
+                "tar",
+                "-xf",
+                join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf.tar.gz"),
+                "-C",
+                join(data_dir, "pcqm4mv2/raw/"),
+            ]
+        )
+
+    if not os.path.isfile(join(data_dir, "tox21_original/raw/tox21.sdf")):
+        # load tox21 original data
+        print("downloading tox21 original data")
+        subprocess.run(
+            [
+                "wget",
+                "-P",
+                join(data_dir, "tox21_original/raw"),
+                "http://bioinf.jku.at/research/DeepTox/tox21_compoundData.csv",
+            ]
+        )
+        subprocess.run(
+            [
+                "wget",
+                "-P",
+                join(data_dir, "tox21_original/raw"),
+                "http://bioinf.jku.at/research/DeepTox/tox21.sdf.gz",
+            ]
+        )
+        subprocess.run(["gunzip", join(data_dir, "tox21_original/raw/tox21.sdf.gz")])
 
     # load tox21 data
-    print("downloading tox21 data")
-    subprocess.run(
-        [
-            "wget",
-            "-P",
-            join(data_dir, "tox21/raw"),
-            "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/tox21.csv.gz",
-        ]
-    )
-    subprocess.run(["gunzip", join(data_dir, "tox21/raw/tox21.csv.gz")])
+    if not os.path.isfile(join(data_dir, "tox21/raw/tox21.csv")):
+        print("downloading tox21 data")
+        subprocess.run(
+            [
+                "wget",
+                "-P",
+                join(data_dir, "tox21/raw"),
+                "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/tox21.csv.gz",
+            ]
+        )
+        subprocess.run(["gunzip", join(data_dir, "tox21/raw/tox21.csv.gz")])
 
     # load pcba data
-    print("downloading pcba data")
-    subprocess.run(
-        [
-            "wget",
-            "-P",
-            join(data_dir, "pcba/raw"),
-            "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/pcba.csv.gz",
-        ]
-    )
-    subprocess.run(["gunzip", join(data_dir, "pcba/raw/pcba.csv.gz")])
+    if not os.path.isfile(join(data_dir, "pcba/raw/pcba.csv")):
+        print("downloading pcba data")
+        subprocess.run(
+            [
+                "wget",
+                "-P",
+                join(data_dir, "pcba/raw"),
+                "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/pcba.csv.gz",
+            ]
+        )
+        subprocess.run(["gunzip", join(data_dir, "pcba/raw/pcba.csv.gz")])
 
     # load qm9 data
     print("downloading qm9 data")
-    subprocess.run(
-        [
-            "wget",
-            "-P",
-            join(data_dir, "qm9/raw"),
-            "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/molnet_publish/qm9.zip",
-        ]
-    )
-    subprocess.run(
-        ["unzip", join(data_dir, "qm9/raw/qm9.zip"), "-d", join(data_dir, "qm9/raw")]
-    )
-    subprocess.run(["rm", join(data_dir, "qm9/raw/qm9.zip")])
+    if not os.path.isfile(join(data_dir, "qm9/raw/qdb9.sdf")):
+        subprocess.run(
+            [
+                "wget",
+                "-P",
+                join(data_dir, "qm9/raw"),
+                "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/molnet_publish/qm9.zip",
+            ]
+        )
+        subprocess.run(
+            ["unzip", join(data_dir, "qm9/raw/qm9.zip"), "-d", join(data_dir, "qm9/raw")]
+        )
+        subprocess.run(["rm", join(data_dir, "qm9/raw/qm9.zip")])
 
     # load zinc data
     print("downloading zinc data")
@@ -105,6 +114,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     ds = data_utils.sdf_to_arrow(
         join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
         to_disk_location=join(data_dir, "pcqm4mv2/processed/arrow"),
+        cache_dir=join(data_dir, "huggingface"),
     )
 
     print("processing tox21 original data to arrow format")
@@ -115,6 +125,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         csv_with_metainfo=join(data_dir, "tox21_original/raw/tox21_compoundData.csv"),
         split_column=4,
         take_split="training",
+        cache_dir=join(data_dir, "huggingface")
     )
     ds_val = data_utils.sdf_to_arrow(
         join(data_dir, "tox21_original/raw/tox21.sdf"),
@@ -123,6 +134,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         csv_with_metainfo=join(data_dir, "tox21_original/raw/tox21_compoundData.csv"),
         split_column=4,
         take_split="validation",
+        cache_dir=join(data_dir, "huggingface")
     )
     ds_test = data_utils.sdf_to_arrow(
         join(data_dir, "tox21_original/raw/tox21.sdf"),
@@ -131,6 +143,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         csv_with_metainfo=join(data_dir, "tox21_original/raw/tox21_compoundData.csv"),
         split_column=4,
         take_split="test",
+        cache_dir=join(data_dir, "huggingface")
     )
 
     dataset_dict = DatasetDict(
@@ -148,6 +161,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         to_disk_location=join(data_dir, "tox21/processed/arrow"),
         include_conformer=create_conformers,
         id_column=12,
+        cache_dir=join(data_dir, "huggingface")
     )
 
     print("processing pcba data to arrow format")
@@ -158,6 +172,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         smiles_column=-1,
         id_column=-2,
         target_columns=list(range(0, 128)),
+        cache_dir=join(data_dir, "huggingface")
     )
 
     print("processing qm9 data to arrow format")
@@ -186,6 +201,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
             18,
             19,
         ],
+        cache_dir=join(data_dir, "huggingface")
     )
 
     print("processing zinc data to arrow format")
@@ -194,6 +210,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     ds_train = data_utils.rdkit_to_arrow(
         mol_list,
         target_list=zinc.y.numpy().tolist(),
+        cache_dir=join(data_dir, "huggingface")
     )
 
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="val")
@@ -201,6 +218,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     ds_val = data_utils.rdkit_to_arrow(
         mol_list,
         target_list=zinc.y.numpy().tolist(),
+        cache_dir=join(data_dir, "huggingface")
     )
 
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="test")
@@ -208,6 +226,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     ds_test = data_utils.rdkit_to_arrow(
         mol_list,
         target_list=zinc.y.numpy().tolist(),
+        cache_dir=join(data_dir, "huggingface")
     )
 
     dataset_dict = DatasetDict(
