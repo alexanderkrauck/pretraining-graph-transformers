@@ -24,7 +24,7 @@ trainer_args:
   lr_scheduler_type: "polynomial" #NOTE: if i want to set end-learning-rate, I need to create the scheduler myself, for now I will use the default of 1e-7
   warmup_steps: 60000
   num_train_epochs: 150
-  evaluation_strategy: 'epoch'
+  evaluation_strategy: 'epoch'  # evaluation strategy to adopt during training (`'steps'`, `'epoch'`, `'interval'`)
   logging_strategy: 'epoch'
   do_eval: True  # whether to run evaluation during training
   save_total_limit: 4  # limit the total amount of checkpoints and deletes the older checkpoints
