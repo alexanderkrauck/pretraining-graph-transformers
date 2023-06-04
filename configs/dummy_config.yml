@@ -1,7 +1,7 @@
 pretraining: False
-random_seed: 42
+seed: 42
 batch_size: 64
-devices: [0, 1, 2, 3]
+devices: [0]
 data_args:
   dataset_name: 'imdb'  # dataset name or path to dataset
   data_dir: 'data'  # directory to save the datasets

@@ -1,5 +1,5 @@
 pretraining: False
-random_seed: 42
+seed: 42
 batch_size: 64
 devices: [0, 1, 2, 3]
 data_args:
