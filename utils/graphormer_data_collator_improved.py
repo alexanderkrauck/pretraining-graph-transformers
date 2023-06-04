@@ -99,7 +99,7 @@ class GraphormerDataCollator:
             features = [vars(f) for f in features]
         batch = {}
 
-        # Note: per preprocessing edge_feat_size and edge_input_size is always the same.
+        # NOTE: per preprocessing edge_feat_size and edge_input_size is always the same.
         max_node_num = max(len(i["input_nodes"]) for i in features)
         node_feat_size = len(features[0]["input_nodes"][0])
         edge_feat_size = len(features[0]["attn_edge_type"][0][0])
@@ -148,32 +148,23 @@ class GraphormerDataCollator:
             ]:
                 f[k] = torch.tensor(f[k])
 
+            n_nodes = f["input_nodes"].shape[0]
+            max_dist = f["input_edges"].shape[2]
+
             above_max = f["spatial_pos"] >= self.spatial_pos_max
-            if (  # NOTE I think you could also just sum f["spatial_pos"] >= self.spatial_pos_max
-                torch.sum(above_max) > 0
-            ):  # so all that are above the max are set to -inf #TODO: f["attn_bias"] is completely useless. you can just use the spatial pos
+            if torch.sum(above_max) > 0:
+                # so all that are above the max are set to -inf #TODO: f["attn_bias"] is completely useless. you can just use the spatial pos
                 f["attn_bias"][1:, 1:][above_max] = float("-inf")
             # TODO: this is all square matrices so we could just use one dim
-            batch["attn_bias"][
-                ix, : f["attn_bias"].shape[0], : f["attn_bias"].shape[1]
-            ] = f["attn_bias"]
-            batch["attn_edge_type"][
-                ix, : f["attn_edge_type"].shape[0], : f["attn_edge_type"].shape[1], :
-            ] = f["attn_edge_type"]
-            batch["spatial_pos"][
-                ix, : f["spatial_pos"].shape[0], : f["spatial_pos"].shape[1]
-            ] = f["spatial_pos"]
-            batch["in_degree"][ix, : f["in_degree"].shape[0]] = f["in_degree"]
-            batch["input_nodes"][ix, : f["input_nodes"].shape[0], :] = f["input_nodes"]
-            batch["input_edges"][
-                ix,
-                : f["input_edges"].shape[0],
-                : f["input_edges"].shape[1],
-                : f["input_edges"].shape[2],
-                :,
-            ] = f["input_edges"]
 
-        batch["out_degree"] = batch["in_degree"]
+            batch["attn_bias"][ix, : n_nodes + 1, : n_nodes + 1] = f["attn_bias"]
+            batch["attn_edge_type"][ix, :n_nodes, :n_nodes] = f["attn_edge_type"]
+            batch["spatial_pos"][ix, :n_nodes, :n_nodes] = f["spatial_pos"]
+            batch["in_degree"][ix, :n_nodes] = f["in_degree"]
+            batch["input_nodes"][ix, :n_nodes] = f["input_nodes"]
+            batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist] = f["input_edges"]
+
+        batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
 
         sample = features[0]["labels"]
         if len(sample) == 1:  # one task
