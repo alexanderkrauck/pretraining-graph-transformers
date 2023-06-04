@@ -32,7 +32,10 @@ from utils import setup as setup_utils
 
 
 def main(
-    name: str = None, logdir: str = "runs", yaml_file: str = "configs/dummy_config.yml"
+    name: str = None,
+    logdir: str = "runs",
+    yaml_file: str = "configs/dummy_config.yml",
+    from_pretrained: str = None,
 ):
     """
     Entry point for training and evaluating the model.
@@ -43,6 +46,7 @@ def main(
             Name of the experiment.
         logdir (str): Directories where logs are stored.
         yaml_file (str): The yaml file with the config.
+        from_pretrained (str): Path to a pretrained model.
     """
     # TODO: Implement the logic of the main function
     with open(yaml_file, "r") as file:
@@ -62,13 +66,7 @@ def main(
 
     # TODO: move below to a seperate function maybe
     pretraining = config["pretraining"]
-    data_args = config["data_args"]
-
-    dataset = data_utils.prepare_dataset_for_training(pretraining, **data_args)
-
-    # Define your custom model here
-    model_config = GraphormerConfig(**config["model_args"])
-    model = GraphormerForGraphClassification(model_config)
+    dataset = data_utils.prepare_dataset_for_training(pretraining, **config["data_args"])
 
     # Set up the training arguments
     # TODO: maybe add logic for hyperparameter search
@@ -84,6 +82,18 @@ def main(
     )
 
     if not pretraining:
+        n_classes = len(dataset[0]["labels"])
+        # Define your custom model here
+        if from_pretrained is not None:
+            model = GraphormerForGraphClassification.from_pretrained(
+                from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
+            )
+        else:
+            model_config = GraphormerConfig(
+                num_classes=n_classes, **config["model_args"]
+            )
+            model = GraphormerForGraphClassification(model_config)
+
         collator = graphormer_collator_utils.GraphormerDataCollator()
 
         trainer = Trainer(
@@ -115,6 +125,13 @@ if __name__ == "__main__":
         "--yaml_file",
         help="The yaml file with the config",
         default="configs/dummy_config.yml",
+        type=str,
+    )
+
+    parser.add_argument(
+        "-p",
+        "--from_pretrained",
+        help="If provided, the pretrained model to use initially.",
         type=str,
     )
 
