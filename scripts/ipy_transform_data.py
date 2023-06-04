@@ -52,32 +52,32 @@ del zinc
 
 # %%
 ds = data_utils.sdf_to_arrow(
-    "data/pcqm4mv2/raw/pcqm4m-v2-train.sdf",
-    to_disk_location="data/pcqm4mv2/processed/arrow",
+    join(data_dir,"pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
+    to_disk_location=join(data_dir, "pcqm4mv2/processed/arrow"),
 )
 
 # %%
 ds_train = data_utils.sdf_to_arrow(
-    "data/tox21_original/raw/tox21.sdf",
-    to_disk_location="data/tox21_original/processed/arrow",
+    join(data_dir, "tox21_original/raw/tox21.sdf"),
+    to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
     target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-    csv_with_metainfo="data/tox21_original/raw/tox21_compoundData.csv",
+    csv_with_metainfo=join(data_dir, "tox21_original/raw/tox21_compoundData.csv"),
     split_column=4,
     take_split="training",
 )
 ds_val = data_utils.sdf_to_arrow(
-    "data/tox21_original/raw/tox21.sdf",
-    to_disk_location="data/tox21_original/processed/arrow",
+    join(data_dir, "tox21_original/raw/tox21.sdf"),
+    to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
     target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-    csv_with_metainfo="data/tox21_original/raw/tox21_compoundData.csv",
+    csv_with_metainfo=join(data_dir, "tox21_original/raw/tox21_compoundData.csv"),
     split_column=4,
     take_split="validation",
 )
 ds_test = data_utils.sdf_to_arrow(
-    "data/tox21_original/raw/tox21.sdf",
-    to_disk_location="data/tox21_original/processed/arrow",
+    join(data_dir, "tox21_original/raw/tox21.sdf"),
+    to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
     target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-    csv_with_metainfo="data/tox21_original/raw/tox21_compoundData.csv",
+    csv_with_metainfo=join(data_dir, "tox21_original/raw/tox21_compoundData.csv"),
     split_column=4,
     take_split="test",
 )
@@ -89,11 +89,11 @@ dataset_dict = DatasetDict(
         "test": ds_test,
     }
 )
-dataset_dict.save_to_disk("data/tox21_original/processed/arrow")
+dataset_dict.save_to_disk(join(data_dir, "tox21_original/processed/arrow"))
 # %%
 ds = data_utils.csv_to_arrow(
-    "data/tox21/raw/tox21.csv",
-    to_disk_location="data/tox21/processed/arrow",
+    join(data_dir, "tox21/raw/tox21.csv"),
+    to_disk_location=join(data_dir, "tox21/processed/arrow"),
     include_conformer=True,
     id_column=12,
 )
@@ -101,9 +101,9 @@ ds = data_utils.csv_to_arrow(
 
 # %%
 ds = data_utils.sdf_to_arrow(
-    "data/qm9/raw/gdb9.sdf",
-    to_disk_location="data/qm9/processed/arrow",
-    csv_with_metainfo="data/qm9/raw/gdb9.sdf.csv",
+    join(data_dir, "qm9/raw/gdb9.sdf"),
+    to_disk_location=join(data_dir, "qm9/processed/arrow"),
+    csv_with_metainfo=join(data_dir, "qm9/raw/gdb9.sdf.csv"),
     target_columns=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
 )
 
@@ -137,12 +137,13 @@ dataset_dict = DatasetDict(
     }
 )
 
-dataset_dict.save_to_disk("data/ZINC/processed/arrow")
+dataset_dict.save_to_disk(join(data_dir, "ZINC/processed/arrow"))
 
 # %%
 ds = data_utils.csv_to_arrow(
-    "data/pcba/raw/pcba.csv",
-    to_disk_location="data/pcba/processed/arrow",
+    join(data_dir, "pcba/raw/pcba.csv"),
+    include_conformer=False, #NOTE: for now because its very slow
+    to_disk_location=join(data_dir, "pcba/processed/arrow"),
     smiles_column=-1,
     id_column=-2,
     target_columns=list(range(0, 128)),
@@ -151,14 +152,17 @@ ds = data_utils.csv_to_arrow(
 #Here start the mapping of the data to input format to the model
 
 #%%
-data_utils.map_arrow_dataset_from_disk("data/pcqm4mv2/processed", is_dataset_dict=False)
+data_utils.map_arrow_dataset_from_disk(join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False)
 # %%
-data_utils.map_arrow_dataset_from_disk("data/tox21_original/processed", is_dataset_dict=True)
+data_utils.map_arrow_dataset_from_disk(join(data_dir, "tox21_original/processed"), is_dataset_dict=True)
 # %%
-data_utils.map_arrow_dataset_from_disk("data/tox21/processed", is_dataset_dict=False)
+data_utils.map_arrow_dataset_from_disk(join(data_dir, "tox21/processed"), is_dataset_dict=False)
 # %%
-data_utils.map_arrow_dataset_from_disk("data/qm9/processed", is_dataset_dict=False)
+data_utils.map_arrow_dataset_from_disk(join(data_dir, "qm9/processed"), is_dataset_dict=False)
 #%%
-data_utils.map_arrow_dataset_from_disk("data/ZINC/processed", is_dataset_dict=True)
+data_utils.map_arrow_dataset_from_disk(join(data_dir, "ZINC/processed"), is_dataset_dict=True)
 # %%
+data_utils.map_arrow_dataset_from_disk(join(data_dir, "pcba/processed"), is_dataset_dict=False)
 
+
+# %%

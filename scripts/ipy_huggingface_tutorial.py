@@ -32,7 +32,7 @@ G.add_edges_from([(edges[0][i], edges[1][i]) for i in range(num_edges)])
 nx.draw(G)
 # %%
 from transformers.models.graphormer.collating_graphormer import preprocess_item, GraphormerDataCollator
-dataset_processed = dataset.map(preprocess_item, batched=False)
+dataset_processed = dataset.map(preprocess_item, batched=False, cache_dir = "data/huggingface")
 #dataset_processed = dataset
 #%%
 dataset_processed["train"][0].keys()
