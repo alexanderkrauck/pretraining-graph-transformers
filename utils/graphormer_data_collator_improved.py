@@ -25,7 +25,15 @@ def convert_to_single_emb(x, offset: int = 512):
     return x
 
 
-def preprocess_item(item, keep_features=True):
+def preprocess_item(item, num_edge_features: int = 3):
+    """
+    Preprocess a single item from a dataset.
+
+    Args:
+        item (Dict[str, Any]): A single item from a dataset.
+        num_edge_features (int): The number of edge features to use. NOTE: This is mainly here for the speical case of graphs without any edges.
+    """
+
     requires_backends(preprocess_item, ["cython"])
 
     # Transfer the data from the item to numpy arrays.
@@ -39,13 +47,13 @@ def preprocess_item(item, keep_features=True):
     # Create node features with an offset.
     input_nodes = convert_to_single_emb(node_feature) + 1
 
-    if len(edge_attr.shape) == 1:
+    if num_edge_features != 1 and edge_attr.shape[-1] != num_edge_features:
+        edge_attr = np.zeros([0, num_edge_features], dtype=np.int64)
+    elif len(edge_attr.shape) == 1:
         edge_attr = edge_attr[:, None]
 
     # Create dense edge_attr matrix with an offset.
-    attn_edge_type = np.zeros(
-        [num_nodes, num_nodes, edge_attr.shape[-1]], dtype=np.int64
-    )
+    attn_edge_type = np.zeros([num_nodes, num_nodes, num_edge_features], dtype=np.int64)
     attn_edge_type[edge_index[0], edge_index[1]] = convert_to_single_emb(edge_attr) + 1
 
     # Binary dense adjacency matrix (true if edge exists).
@@ -61,7 +69,12 @@ def preprocess_item(item, keep_features=True):
     # input edges is of shape [num_nodes, num_nodes, max_dist, num_edge_features]
     # If there is a unconnected node in the graph, the input_edges will be [num_nodes, num_nodes, 510, num_edge_features]
     # That is quite large and I need to make sure the data is correctly preprocessed so this only happens for a few samples if at all.
-    input_edges = algos_graphormer.gen_edge_input(max_dist, path, attn_edge_type)
+    if max_dist != 0:
+        input_edges = algos_graphormer.gen_edge_input(max_dist, path, attn_edge_type)
+    else:
+        input_edges = np.zeros(
+            [num_nodes, num_nodes, 0, num_edge_features], dtype=np.int32
+        )
     attn_bias = np.zeros(
         [num_nodes + 1, num_nodes + 1], dtype=np.single
     )  # with graph token
@@ -88,11 +101,12 @@ def preprocess_item(item, keep_features=True):
 
 
 class GraphormerDataCollator:
-    def __init__(self, spatial_pos_max=20):
+    def __init__(self, spatial_pos_max=20, num_edge_features=None):
         if not is_cython_available():
             raise ImportError("Graphormer preprocessing needs Cython (pyximport)")
 
         self.spatial_pos_max = spatial_pos_max
+        self.num_edge_features = num_edge_features
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
         if not isinstance(features[0], Mapping):
@@ -104,7 +118,11 @@ class GraphormerDataCollator:
         node_feat_size = len(features[0]["input_nodes"][0])
         edge_feat_size = len(features[0]["attn_edge_type"][0][0])
         max_dist = max(len(i["input_edges"][0][0]) for i in features)
-        edge_input_size = len(features[0]["input_edges"][0][0][0])
+        #TODO maybe remove this if check
+        if self.num_edge_features is None:
+            edge_input_size = features[0]["input_edges"].shape[-1]
+        else:
+            edge_input_size = self.num_edge_features
         batch_size = len(features)
 
         # Here things are scaled to the maximum size of the batch as I did before with OHG.
@@ -162,7 +180,14 @@ class GraphormerDataCollator:
             batch["spatial_pos"][ix, :n_nodes, :n_nodes] = f["spatial_pos"]
             batch["in_degree"][ix, :n_nodes] = f["in_degree"]
             batch["input_nodes"][ix, :n_nodes] = f["input_nodes"]
-            batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist] = f["input_edges"]
+            #TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
+            if (
+                batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist].shape
+                == f["input_edges"].shape
+            ): 
+                batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist] = f[
+                    "input_edges"
+                ]
 
         batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
 

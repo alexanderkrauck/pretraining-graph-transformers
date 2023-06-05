@@ -54,8 +54,8 @@ def main(
 
     name = setup_utils.get_experiment_name(config, name)
     logpath = os.path.join(logdir, name)
-    logger = setup_utils.setup_logging(logpath, name)
-    setup_utils.setup_wandb()
+    logger = setup_utils.setup_logging(logpath, name, yaml_file)
+    setup_utils.setup_wandb(name, logdir)
 
     seed = config["seed"]  # TODO: maybe allow multiple seeds with a loop
     logger.info(f"Set the random seed to : {seed}")
@@ -78,11 +78,12 @@ def main(
         output_dir=os.path.join(logpath, "checkpoints"),
         logging_dir=logpath,
         seed=seed,
+        run_name=name,
         **config["trainer_args"],
     )
 
     if not pretraining:
-        n_classes = len(dataset[0]["labels"])
+        n_classes = len(dataset["train"][0]["labels"])
         # Define your custom model here
         if from_pretrained is not None:
             model = GraphormerForGraphClassification.from_pretrained(
@@ -94,7 +95,7 @@ def main(
             )
             model = GraphormerForGraphClassification(model_config)
 
-        collator = graphormer_collator_utils.GraphormerDataCollator()
+        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features = 3)
 
         trainer = Trainer(
             model=model,

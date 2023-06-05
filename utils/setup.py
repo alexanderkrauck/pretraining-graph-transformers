@@ -14,7 +14,7 @@ __date__ = "2023-06-03"
 
 import logging
 import os
-import datetime
+from datetime import datetime
 from pathlib import Path
 import shutil
 
@@ -110,7 +110,7 @@ def get_commit(repo_path: str = "."):
     commit = head_ref.read_text().replace("\n", "")
     return commit
 
-def setup_wandb():
+def setup_wandb(name:str, logdir: str):
     """
     Setup the wandb logger.
     """
@@ -122,6 +122,10 @@ def setup_wandb():
 
     # turn off watch to log faster
     os.environ["WANDB_WATCH"]="false"
+
+    os.environ["WANDB_NAME"] = name
+
+    os.environ["WANDB_DIR"] = logdir#os.path.join(logdir, "wandb")
 
 def setup_batch_size(config: dict):
     """
