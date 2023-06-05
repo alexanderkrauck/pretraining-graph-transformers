@@ -165,4 +165,13 @@ data_utils.map_arrow_dataset_from_disk(join(data_dir, "ZINC/processed"), is_data
 data_utils.map_arrow_dataset_from_disk(join(data_dir, "pcba/processed"), is_dataset_dict=False)
 
 
-# %%
+# %% Test out for samples with 0 edges
+dataset = DatasetDict.load_from_disk("data/tox21_original/processed/arrow")
+regular_sample = dataset["train"].filter(lambda example: example['id'] == 0)[0]
+zero_edge_sample = dataset["train"].filter(lambda example: example['id'] == 10206)[0]
+#%%
+proc1 = graphormer_collator_utils.preprocess_item(zero_edge_sample)
+proc2 = graphormer_collator_utils.preprocess_item(regular_sample)
+#%%
+collator = graphormer_collator_utils.GraphormerDataCollator()
+collator([proc1, proc2])

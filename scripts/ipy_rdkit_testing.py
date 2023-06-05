@@ -7,7 +7,7 @@ from rdkit import Chem
 from utils import data as data_utils
 import torch_geometric as pyg
 import tqdm
-
+#%%
 data = pyg.datasets.ZINC("data/ZINC", subset=True)
 
 flag = 0
@@ -74,5 +74,5 @@ mol = Chem.MolFromSmiles('CCOc1ccc2nc(S(N)(=O)=O)sc2c1')
 
 GetMoleculeBoundsMatrix(mol)
 # %%
-mol
+Chem.MolFromSmiles('Cl2Sn')
 # %%
