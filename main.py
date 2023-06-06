@@ -29,6 +29,7 @@ from transformers import (
 from utils import data as data_utils
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
 from utils import setup as setup_utils
+from utils import evaluate as evaluate_utils
 
 
 def main(
@@ -66,7 +67,12 @@ def main(
 
     # TODO: move below to a seperate function maybe
     pretraining = config["pretraining"]
-    dataset = data_utils.prepare_dataset_for_training(pretraining, **config["data_args"])
+    dataset = data_utils.prepare_dataset_for_training(
+        pretraining, **config["data_args"]
+    )
+    evaluation_func = evaluate_utils.prepare_evaluation_for_training(
+        pretraining, **config["data_args"]
+    )
 
     # Set up the training arguments
     # TODO: maybe add logic for hyperparameter search
@@ -95,7 +101,7 @@ def main(
             )
             model = GraphormerForGraphClassification(model_config)
 
-        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features = 3)
+        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3)
 
         trainer = Trainer(
             model=model,
@@ -103,6 +109,7 @@ def main(
             train_dataset=dataset["train"],
             eval_dataset=dataset["validation"],
             data_collator=collator,
+            compute_metrics=evaluation_func,
         )
 
         trainer.train()

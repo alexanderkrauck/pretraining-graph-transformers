@@ -517,19 +517,23 @@ def map_arrow_dataset_from_disk(dataset_location: str, is_dataset_dict: bool = F
     source_dataset_location = join(dataset_location, "arrow")
     destination_dataset_location = join(dataset_location, "arrow_processed")
 
-
     if is_dataset_dict:
         dataset = DatasetDict.load_from_disk(source_dataset_location)
     else:
         dataset = load_from_disk(source_dataset_location)
 
-    dataset = dataset.map(graphormer_collator_utils.preprocess_item, batched=False, load_from_cache_file = False)
+    dataset = dataset.map(
+        graphormer_collator_utils.preprocess_item,
+        batched=False,
+        load_from_cache_file=False,
+    )
 
     dataset.save_to_disk(destination_dataset_location)
 
 
-
-def prepare_dataset_for_training(pretraining: bool, dataset_name: str, data_dir: str, **kwargs):
+def prepare_dataset_for_training(
+    pretraining: bool, dataset_name: str, data_dir: str, **kwargs
+):
     """
     Prepare the dataset for training.
 
@@ -541,12 +545,6 @@ def prepare_dataset_for_training(pretraining: bool, dataset_name: str, data_dir:
     """
 
     if not pretraining:
-        assert dataset_name in [
-            "tox21_original",
-            "tox21",
-            "ZINC",
-            "qm9",
-        ], "Invalid dataset name for fine tuning."
         if dataset_name == "tox21_original":
             dataset = DatasetDict.load_from_disk(
                 join(data_dir, "tox21_original/processed/arrow_processed")
@@ -562,19 +560,17 @@ def prepare_dataset_for_training(pretraining: bool, dataset_name: str, data_dir:
         if dataset_name == "qm9":
             dataset = load_from_disk(join(data_dir, "qm9/processed/arrow_processed"))
             return split_dataset(dataset, 0.2, **kwargs)
+        raise ValueError("Invalid dataset name for fine tuning.")
     else:
-        assert dataset_name in [
-            "pcqm4mv2",
-            "pcba",
-            "qm9",
-        ], "Invalid dataset name for pretraining."
         if dataset_name == "pcqm4mv2":
             return load_from_disk(join(data_dir, "pcqm4mv2/processed/arrow_processed"))
         if dataset_name == "pcba":
             return load_from_disk(join(data_dir, "pcba/processed/arrow_processed"))
         if dataset_name == "qm9":
             return load_from_disk(join(data_dir, "qm9/processed/arrow_processed"))
-        
+        raise ValueError("Invalid dataset name for pretraining.")
+
+
 def split_dataset(dataset: Dataset, train_split: float, seed: int):
     """
     Split the dataset into train, validation and test set.
@@ -586,7 +582,9 @@ def split_dataset(dataset: Dataset, train_split: float, seed: int):
         seed (int): The seed for the random number generator.
     """
     # TODO: check for bugs
-    dataset = dataset.train_test_split(test_size=1-train_split, seed=seed, shuffle=True)
+    dataset = dataset.train_test_split(
+        test_size=1 - train_split, seed=seed, shuffle=True
+    )
 
     test_val_dataset = Dataset.train_test_split(
         dataset["test_val"], test_size=0.5, seed=seed, shuffle=True

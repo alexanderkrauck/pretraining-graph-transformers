@@ -116,13 +116,12 @@ class GraphormerDataCollator:
         # NOTE: per preprocessing edge_feat_size and edge_input_size is always the same.
         max_node_num = max(len(i["input_nodes"]) for i in features)
         node_feat_size = len(features[0]["input_nodes"][0])
-        edge_feat_size = len(features[0]["attn_edge_type"][0][0])
         max_dist = max(len(i["input_edges"][0][0]) for i in features)
         #TODO maybe remove this if check
         if self.num_edge_features is None:
-            edge_input_size = features[0]["input_edges"].shape[-1]
+            num_edge_features = features[0]["input_edges"].shape[-1]
         else:
-            edge_input_size = self.num_edge_features
+            num_edge_features = self.num_edge_features
         batch_size = len(features)
 
         # Here things are scaled to the maximum size of the batch as I did before with OHG.
@@ -134,7 +133,7 @@ class GraphormerDataCollator:
 
         # Create tensor for edge attribute (type) data
         batch["attn_edge_type"] = torch.zeros(
-            batch_size, max_node_num, max_node_num, edge_feat_size, dtype=torch.long
+            batch_size, max_node_num, max_node_num, num_edge_features, dtype=torch.long
         )
         # Create tensor for spatial position data (shortest path distance)
         batch["spatial_pos"] = torch.zeros(
@@ -151,7 +150,7 @@ class GraphormerDataCollator:
             max_node_num,
             max_node_num,
             max_dist,
-            edge_input_size,
+            num_edge_features,
             dtype=torch.long,
         )
 

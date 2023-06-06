@@ -195,4 +195,5 @@ pyrightconfig.json
 /repos
 /runs
 /investigations
+/wandb
 /.*
