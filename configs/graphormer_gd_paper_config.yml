@@ -7,20 +7,20 @@ data_args:
   data_dir: 'data'  # directory to save the datasets
   train_split: 0.8  # proportion of data for training, the rest is for validation/testing
 trainer_args: 
-  optim: "adamw_hf" 
+  optim: "adamw_torch" 
   gradient_accumulation_steps: 1
-  learning_rate: 2e-4  # initial learning rate for optimizer
+  learning_rate: 2.0e-4  # initial learning rate for optimizer
   weight_decay: 0.01  # weight decay if applicable
   adam_beta1: 0.9
   adam_beta2: 0.999
-  adam_epsilon: 1e-8  # epsilon for Adam optimizer
+  adam_epsilon: 1.0e-8  # epsilon for Adam optimizer
   max_grad_norm: 5.0
   logging_steps: 100  # number of steps between each log
   save_steps: 2000  # number of steps between each save
-  lr_scheduler_type: "polynomial" #NOTE: if i want to set end-learning-rate, I need to create the scheduler myself, for now I will use the default of 1e-7
-  warmup_steps: 60000
+  lr_scheduler_type: "polynomial" #NOTE: If i want to set end-learning-rate, I need to create the scheduler myself, for now I will use the default of 1e-7
+  warmup_steps: 2500  # number of steps for linear lr warmup
   num_train_epochs: 150
-  evaluation_strategy: 'epoch'  # evaluation strategy to adopt during training (`'steps'`, `'epoch'`, `'interval'`)
+  evaluation_strategy: 'epoch'
   logging_strategy: 'epoch'
   do_eval: True  # whether to run evaluation during training
   save_total_limit: 4  # limit the total amount of checkpoints and deletes the older checkpoints
@@ -29,9 +29,21 @@ trainer_args:
 model_args:
   embedding_dim: 80
   ffn_embedding_dim: 80
-  use_auth_token: False  # whether to use an auth token when using a private model
   num_attention_heads: 8  # number of attention heads for transformer model
   num_hidden_layers: 12  # number of hidden layers in the transformer encoder
   hidden_dropout_prob: 0.1  # dropout probability for all fully connected layers in the embeddings, encoder, and pooler
-  attention_probs_dropout_prob: 0.1  # dropout probability for attention probabilities in transformer model
-  dropout: 0.0
+  attention_dropout: 0.1  # dropout probability for attention probabilities in transformer model
+  dropout: 0.0 #for the fully connected layers in embeddings, encoder, and pooler
+  num_atoms: 4608 # = 512 * 9
+  num_edges: 1536 # = 512 * 3
+  num_in_degree: 512
+  num_out_degree: 512
+  multi_hop_max_dist: 5 # NOTE: 5 is default even tho documentation says 20 !
+  edge_type: "multihop"
+  activation_function: "gelu"
+  layerdrop: 0.0
+  encoder_normalize_before: False
+  pre_layernorm: False
+  apply_graphormer_init: False
+  encoder_normalize_before: False
+  q_noise: 0.0
