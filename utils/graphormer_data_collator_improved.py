@@ -16,9 +16,22 @@ if is_cython_available():
     from transformers.models.graphormer import algos_graphormer  # noqa E402
 
 
-# NOTE:  Not really sure about this function or the purpose of it.
-#       It basically adds multiples of the offset to the features of each sample.
-def convert_to_single_emb(x, offset: int = 512):
+# This is needed because in the model the same embedding is used for each of the dimensions atom/edges. 
+# An offset is needed to distinguish between them. However, this is really inefficient.
+def convert_to_single_emb(x: np.ndarray, offset: int = 512):
+    """
+    Add an offset to each column/features in the input array to make them unique between columns.
+    
+    This is needed because in the model the same embedding is used for each of the dimensions atom/edges. 
+    An offset is needed to distinguish between them. However, this is really inefficient.
+
+    Args:
+    -----
+    x : np.ndarray
+        The input array.
+    offset : int
+        The offset to use.
+    """
     feature_num = x.shape[1] if len(x.shape) > 1 else 1
     feature_offset = 1 + np.arange(0, feature_num * offset, offset, dtype=np.int64)
     x = x + feature_offset
@@ -81,7 +94,7 @@ def preprocess_item(item, num_edge_features: int = 3):
 
     # Create Dictionary entries with all the data.
     item["input_nodes"] = input_nodes + 1  # we shift all indices by one for padding
-    item["attn_bias"] = attn_bias
+    item["attn_bias"] = attn_bias #NOTE: As far as I can tell, this feature is completely useless
     item["attn_edge_type"] = attn_edge_type
     item["spatial_pos"] = (
         shortest_path_result.astype(np.int64) + 1
