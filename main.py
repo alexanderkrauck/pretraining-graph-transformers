@@ -84,6 +84,7 @@ def main(
         output_dir=os.path.join(logpath, "checkpoints"),
         logging_dir=logpath,
         seed=seed,
+        data_seed=seed,
         run_name=name,
         **config["trainer_args"],
     )

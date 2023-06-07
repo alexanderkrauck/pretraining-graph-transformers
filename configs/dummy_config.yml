@@ -26,6 +26,9 @@ trainer_args:
   save_total_limit: 4  # limit the total amount of checkpoints and deletes the older checkpoints
   dataloader_num_workers: 8 # number of subprocesses for data loading
   report_to: ['wandb', 'tensorboard']  # list of integrations to report the results and logs to
+  load_best_model_at_end: True
+  metric_for_best_model: "loss"
+  greater_is_better: False
   remove_unused_columns: False
 model_args:
   embedding_dim: 80
