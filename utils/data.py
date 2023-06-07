@@ -557,6 +557,7 @@ def prepare_dataset_for_training(
             dataset = DatasetDict.load_from_disk(
                 join(data_dir, "ZINC/processed/arrow_processed")
             )
+            return dataset
         if dataset_name == "qm9":
             dataset = load_from_disk(join(data_dir, "qm9/processed/arrow_processed"))
             return split_dataset(dataset, 0.2, **kwargs)

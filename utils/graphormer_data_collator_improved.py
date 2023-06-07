@@ -204,15 +204,15 @@ class GraphormerDataCollator:
         batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
 
         sample = features[0]["labels"]
-        if len(sample) == 1:  # one task
-            if isinstance(sample[0], float):  # regression
-                batch["labels"] = torch.from_numpy(
-                    np.concatenate([i["labels"] for i in features])
-                )
-            else:  # binary classification
-                batch["labels"] = torch.from_numpy(
-                    np.concatenate([i["labels"] for i in features])
-                )
+
+        if not isinstance(sample, list):  # one task
+            batch["labels"] = torch.tensor(
+                [i["labels"] for i in features]
+            )
+        elif len(sample) == 1:
+            batch["labels"] = torch.from_numpy(
+                np.concatenate([i["labels"] for i in features])
+            )
         else:  # multi task classification, left to float to keep the NaNs
             batch["labels"] = torch.from_numpy(
                 np.stack([i["labels"] for i in features])

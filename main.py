@@ -89,7 +89,11 @@ def main(
     )
 
     if not pretraining:
-        n_classes = len(dataset["train"][0]["labels"])
+        label_0 = dataset["train"][0]["labels"]
+        if not isinstance(label_0, list):
+            n_classes = 1
+        else:
+            n_classes = len(label_0)
         # Define your custom model here
         if from_pretrained is not None:
             model = GraphormerForGraphClassification.from_pretrained(
