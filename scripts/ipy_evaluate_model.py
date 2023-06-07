@@ -23,12 +23,14 @@ from utils import setup as setup_utils
 from utils import evaluate as evaluate_utils
 
 #%%
-model = GraphormerForGraphClassification.from_pretrained("runs/05-06-2023_09-17-18_test/checkpoints/checkpoint-16000")
+data_dir = "/system/user/publicwork/student/krauck/graph_data/"
+model = GraphormerForGraphClassification.from_pretrained("/system/user/publicwork/student/krauck/graph_data/runs/07-06-2023_12-27-56_zinc_no_pretrain/checkpoints/checkpoint-18000")
+
 # %%
 dataset = data_utils.prepare_dataset_for_training(
-        False, dataset_name = "tox21_original", data_dir="data")
+        False, dataset_name = "ZINC", data_dir=data_dir)
 evaluation_func = evaluate_utils.prepare_evaluation_for_training(
-        False, dataset_name = "tox21_original"
+        False, dataset_name = "ZINC"
     )
 
 training_args = TrainingArguments(
@@ -39,7 +41,7 @@ training_args = TrainingArguments(
     warmup_steps=500,                # number of warmup steps for learning rate scheduler
     weight_decay=0.01,               # strength of weight decay
     logging_dir='./logs',
-    report_to = None            # directory for storing logs
+    report_to = []            # directory for storing logs
 )
 
 # Specify the Trainer
