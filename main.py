@@ -24,6 +24,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+import wandb
 
 # Local application imports
 from utils import data as data_utils
@@ -118,6 +119,19 @@ def main(
         )
 
         trainer.train()
+
+        #Do a test run
+        original_report_to = trainer.args.report_to
+        trainer.args.report_to = []
+        test_results = trainer.evaluate(dataset["test"])
+        trainer.args.report_to = original_report_to
+
+        # Prefix all keys in the dictionary with 'test_'
+        test_results = {f'test_{k}': v for k, v in test_results.items()}
+
+        # Log the results
+        wandb.log(test_results)
+
     # TODO: Implement the pretraining logic
 
 
