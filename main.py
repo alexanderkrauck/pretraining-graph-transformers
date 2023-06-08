@@ -87,6 +87,7 @@ def main(
         seed=seed,
         data_seed=seed,
         run_name=name,
+        report_to=["wandb", "tensorboard"],
         **config["trainer_args"],
     )
 
@@ -107,6 +108,7 @@ def main(
             )
             model = GraphormerForGraphClassification(model_config)
 
+        setup_utils.log_model_params(model, logger)
         collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3)
 
         trainer = Trainer(
@@ -120,14 +122,20 @@ def main(
 
         trainer.train()
 
-        #Do a test run
-        original_report_to = trainer.args.report_to
-        trainer.args.report_to = []
+        # Do a test run #TODO: maybe put it in a seperate function/file
+        test_trainer = Trainer(
+            model=model,
+            args=TrainingArguments(
+                report_to=[],
+                **config["trainer_args"],
+            ),
+            data_collator=collator,
+            compute_metrics=evaluation_func,
+        )
         test_results = trainer.evaluate(dataset["test"])
-        trainer.args.report_to = original_report_to
 
         # Prefix all keys in the dictionary with 'test_'
-        test_results = {f'test_{k}': v for k, v in test_results.items()}
+        test_results = {f"test_{k}": v for k, v in test_results.items()}
 
         # Log the results
         wandb.log(test_results)

@@ -145,3 +145,16 @@ def setup_batch_size(config: dict):
         )
     config["trainer_args"]["per_device_train_batch_size"] = int(per_device_batch_size)
     config["trainer_args"]["per_device_eval_batch_size"] = int(per_device_batch_size)
+
+def log_model_params(model, logger):
+    """
+    Log the number of parameters of the model.
+    
+    Args:
+    ----
+        model: The model to log the parameters of.
+        logger: The logger to log the parameters to."""
+
+    paramsum = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    logger.info(f"Total number of trainable parameters: {paramsum}.")
