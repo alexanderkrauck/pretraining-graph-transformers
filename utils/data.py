@@ -547,15 +547,15 @@ def prepare_dataset_for_training(
     if not pretraining:
         if dataset_name == "tox21_original":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "tox21_original/processed/arrow_processed")
+                join(data_dir, "tox21_original/processed/arrow_processed"), keep_in_memory = True
             )
             return dataset
         if dataset_name == "tox21":
-            dataset = load_from_disk(join(data_dir, "tox21/processed/arrow_processed"))
+            dataset = load_from_disk(join(data_dir, "tox21/processed/arrow_processed"), keep_in_memory = True)
             return split_dataset(dataset, 0.2, **kwargs)
         if dataset_name == "ZINC":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "ZINC/processed/arrow_processed")
+                join(data_dir, "ZINC/processed/arrow_processed"), keep_in_memory = True
             )
             return dataset
         if dataset_name == "qm9":
