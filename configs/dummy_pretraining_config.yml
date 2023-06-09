@@ -7,6 +7,7 @@ batch_size: 64
 data_args:
   dataset_name: 'pcqm4mv2'  # dataset name
   data_dir: 'data'  # directory where the dataset is located
+  memory_mode: 'cache'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
   train_split: 0.999  # proportion of data for training, the rest is for validation/testing unless predefined split exists.
 
 # Trainer Settings, see https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments

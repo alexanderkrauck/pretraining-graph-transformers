@@ -19,7 +19,8 @@ __date__ = "2023-05-20"
 from os.path import join
 
 import torch
-from torch_geometric.data.dataset import Dataset
+from torch_geometric.data.dataset import Dataset as PyGDataset
+from torch.utils.data import Dataset as TorchDataset
 
 from datasets import Dataset, Value, Features, Sequence, load_from_disk, DatasetDict
 from rdkit import Chem
@@ -30,7 +31,7 @@ import pandas as pd
 
 from tqdm import tqdm
 
-from typing import Iterable, Optional, List
+from typing import Iterable, Optional, List, Union
 
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
 
@@ -532,7 +533,7 @@ def map_arrow_dataset_from_disk(dataset_location: str, is_dataset_dict: bool = F
 
 
 def prepare_dataset_for_training(
-    pretraining: bool, dataset_name: str, data_dir: str, **kwargs
+    pretraining: bool, dataset_name: str, data_dir: str, memory_mode: str, **kwargs
 ):
     """
     Prepare the dataset for training.
@@ -542,34 +543,58 @@ def prepare_dataset_for_training(
         pretraining (bool): Whether to use the pretraining dataset or the finetuning dataset.
         dataset_name (str): Name of the dataset.
         data_dir (str): Path to the data directory.
+        memory_mode (str): Whether to load the dataset in memory or not. Can be one of ['full', 'half', 'cache'].
     """
+
+    path_extension = "_processed" if memory_mode == "full" else ""
 
     if not pretraining:
         if dataset_name == "tox21_original":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "tox21_original/processed/arrow"), keep_in_memory = True
+                join(data_dir, "tox21_original/processed/arrow" + path_extension),
+                keep_in_memory=True,
             )
-            return dataset
+
         if dataset_name == "tox21":
-            dataset = load_from_disk(join(data_dir, "tox21/processed/arrow"), keep_in_memory = True)
-            return split_dataset(dataset, 0.2, **kwargs)
+            dataset = load_from_disk(
+                join(data_dir, "tox21/processed/arrow" + path_extension),
+                keep_in_memory=True,
+            )
+            dataset = split_dataset(dataset, 0.2, **kwargs)
+
         if dataset_name == "ZINC":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "ZINC/processed/arrow"), keep_in_memory = True
+                join(data_dir, "ZINC/processed/arrow" + path_extension),
+                keep_in_memory=True,
             )
-            return dataset
+
         if dataset_name == "qm9":
-            dataset = load_from_disk(join(data_dir, "qm9/processed/arrow"))
-            return split_dataset(dataset, 0.2, **kwargs)
-        raise ValueError("Invalid dataset name for fine tuning.")
+            dataset = load_from_disk(
+                join(data_dir, "qm9/processed/arrow" + path_extension)
+            )
+            dataset = split_dataset(dataset, 0.2, **kwargs)
+
     else:
         if dataset_name == "pcqm4mv2":
-            return load_from_disk(join(data_dir, "pcqm4mv2/processed/arrow"))
+            dataset = load_from_disk(
+                join(data_dir, "pcqm4mv2/processed/arrow" + path_extension)
+            )
         if dataset_name == "pcba":
-            return load_from_disk(join(data_dir, "pcba/processed/arrow"))
+            dataset = load_from_disk(
+                join(data_dir, "pcba/processed/arrow" + path_extension)
+            )
         if dataset_name == "qm9":
-            return load_from_disk(join(data_dir, "qm9/processed/arrow"))
-        raise ValueError("Invalid dataset name for pretraining.")
+            dataset = load_from_disk(
+                join(data_dir, "qm9/processed/arrow" + path_extension)
+            )
+
+    if dataset is None:
+        raise ValueError(f"Invalid dataset name for pretraining = {pretraining}.")
+
+    if memory_mode in ["full", "half"]:
+        dataset = to_preloaded_dataset(dataset)
+
+    return dataset
 
 
 def split_dataset(dataset: Dataset, train_split: float, seed: int):
@@ -596,3 +621,42 @@ def split_dataset(dataset: Dataset, train_split: float, seed: int):
     dataset["test"] = test_val_dataset["test"]
 
     return DatasetDict(dataset)
+
+
+def to_preloaded_dataset(dataset: Union[Dataset, DatasetDict]):
+    """
+    Convert a dataset to a preloaded dataset.
+
+    Args
+    ----
+        dataset (Union[Dataset, DatasetDict]): The dataset to convert.
+    """
+    if isinstance(dataset, DatasetDict):
+        return {k: to_preloaded_dataset(v) for k, v in dataset.items()}
+
+    return PreloadedDataset(dataset)
+
+
+class PreloadedDataset(TorchDataset):
+    """
+    A preloaded dataset. This is useful when the dataset is small enough to fit in memory.
+    """
+
+    def __init__(self, dataset: Dataset):
+        """
+        Args
+        ----
+            dataset (Dataset): The dataset to preload.
+        """
+        dataset.set_format(type="numpy", columns=list(dataset.column_names))
+        self.column_names = dataset.column_names
+        self.rows = []
+        for i in tqdm(range(len(dataset))):
+            self.rows.append(dataset[i])
+        del dataset
+
+    def __getitem__(self, idx):
+        return self.rows[idx]
+
+    def __len__(self):
+        return len(self.rows)

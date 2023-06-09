@@ -7,6 +7,8 @@ batch_size: 256
 data_args:
   dataset_name: 'ZINC'  # dataset name or path to dataset
   data_dir: '/system/user/publicwork/student/krauck/graph_data/'  # directory to save the datasets
+  memory_mode: 'full'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
+
 
 # Trainer Settings, see https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments
 trainer_args: 

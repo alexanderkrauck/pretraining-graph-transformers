@@ -114,7 +114,8 @@ def main(
             model = GraphormerForGraphClassification(model_config)
 
         setup_utils.log_model_params(model, logger)
-        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3)
+        on_the_fly_processing = False if config["data_args"]["memory_mode"]=="full" else True
+        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3, on_the_fly_processing=on_the_fly_processing)
 
         trainer = Trainer(
             model=model,
