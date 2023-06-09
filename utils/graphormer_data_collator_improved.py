@@ -16,13 +16,13 @@ if is_cython_available():
     from transformers.models.graphormer import algos_graphormer  # noqa E402
 
 
-# This is needed because in the model the same embedding is used for each of the dimensions atom/edges. 
+# This is needed because in the model the same embedding is used for each of the dimensions atom/edges.
 # An offset is needed to distinguish between them. However, this is really inefficient.
 def convert_to_single_emb(x: np.ndarray, offset: int = 512):
     """
     Add an offset to each column/features in the input array to make them unique between columns.
-    
-    This is needed because in the model the same embedding is used for each of the dimensions atom/edges. 
+
+    This is needed because in the model the same embedding is used for each of the dimensions atom/edges.
     An offset is needed to distinguish between them. However, this is really inefficient.
 
     Args:
@@ -94,7 +94,9 @@ def preprocess_item(item, num_edge_features: int = 3):
 
     # Create Dictionary entries with all the data.
     item["input_nodes"] = input_nodes + 1  # we shift all indices by one for padding
-    item["attn_bias"] = attn_bias #NOTE: As far as I can tell, this feature is completely useless
+    item[
+        "attn_bias"
+    ] = attn_bias  # NOTE: As far as I can tell, this feature is completely useless
     item["attn_edge_type"] = attn_edge_type
     item["spatial_pos"] = (
         shortest_path_result.astype(np.int64) + 1
@@ -114,23 +116,44 @@ def preprocess_item(item, num_edge_features: int = 3):
 
 
 class GraphormerDataCollator:
-    def __init__(self, spatial_pos_max=20, num_edge_features=None):
+    def __init__(
+        self, spatial_pos_max=20, num_edge_features=3, on_the_fly_processing=True
+    ):
+        """
+        Data collator for Graphormer.
+
+        Args:
+        -----
+        spatial_pos_max : int
+            The maximum spatial position to use.
+        num_edge_features : int
+            The number of edge features that are assumed.
+        on_the_fly_processing : bool
+            If true, the preprocessing is done on the fly. If false, the data is expected to be processed already.
+            If True, the TrainingArguments need to have the following parameters set: remove_unused_columns = False, num_edge_features = num_edge_features
+        """
+
         if not is_cython_available():
             raise ImportError("Graphormer preprocessing needs Cython (pyximport)")
 
         self.spatial_pos_max = spatial_pos_max
         self.num_edge_features = num_edge_features
+        self.on_the_fly_processing = on_the_fly_processing
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
         if not isinstance(features[0], Mapping):
             features = [vars(f) for f in features]
+
+        if self.on_the_fly_processing:
+            features = [preprocess_item(f, self.num_edge_features) for f in features]
+
         batch = {}
 
         # NOTE: per preprocessing edge_feat_size and edge_input_size is always the same.
         max_node_num = max(len(i["input_nodes"]) for i in features)
         node_feat_size = len(features[0]["input_nodes"][0])
         max_dist = max(len(i["input_edges"][0][0]) for i in features)
-        #TODO maybe remove this if check
+        # TODO maybe remove this if check
         if self.num_edge_features is None:
             num_edge_features = features[0]["input_edges"].shape[-1]
         else:
@@ -192,11 +215,11 @@ class GraphormerDataCollator:
             batch["spatial_pos"][ix, :n_nodes, :n_nodes] = f["spatial_pos"]
             batch["in_degree"][ix, :n_nodes] = f["in_degree"]
             batch["input_nodes"][ix, :n_nodes] = f["input_nodes"]
-            #TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
+            # TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
             if (
                 batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist].shape
                 == f["input_edges"].shape
-            ): 
+            ):
                 batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist] = f[
                     "input_edges"
                 ]
@@ -206,9 +229,7 @@ class GraphormerDataCollator:
         sample = features[0]["labels"]
 
         if not isinstance(sample, list):  # one task
-            batch["labels"] = torch.tensor(
-                [i["labels"] for i in features]
-            )
+            batch["labels"] = torch.tensor([i["labels"] for i in features])
         elif len(sample) == 1:
             batch["labels"] = torch.from_numpy(
                 np.concatenate([i["labels"] for i in features])

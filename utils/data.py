@@ -547,28 +547,28 @@ def prepare_dataset_for_training(
     if not pretraining:
         if dataset_name == "tox21_original":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "tox21_original/processed/arrow_processed"), keep_in_memory = True
+                join(data_dir, "tox21_original/processed/arrow"), keep_in_memory = True
             )
             return dataset
         if dataset_name == "tox21":
-            dataset = load_from_disk(join(data_dir, "tox21/processed/arrow_processed"), keep_in_memory = True)
+            dataset = load_from_disk(join(data_dir, "tox21/processed/arrow"), keep_in_memory = True)
             return split_dataset(dataset, 0.2, **kwargs)
         if dataset_name == "ZINC":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "ZINC/processed/arrow_processed"), keep_in_memory = True
+                join(data_dir, "ZINC/processed/arrow"), keep_in_memory = True
             )
             return dataset
         if dataset_name == "qm9":
-            dataset = load_from_disk(join(data_dir, "qm9/processed/arrow_processed"))
+            dataset = load_from_disk(join(data_dir, "qm9/processed/arrow"))
             return split_dataset(dataset, 0.2, **kwargs)
         raise ValueError("Invalid dataset name for fine tuning.")
     else:
         if dataset_name == "pcqm4mv2":
-            return load_from_disk(join(data_dir, "pcqm4mv2/processed/arrow_processed"))
+            return load_from_disk(join(data_dir, "pcqm4mv2/processed/arrow"))
         if dataset_name == "pcba":
-            return load_from_disk(join(data_dir, "pcba/processed/arrow_processed"))
+            return load_from_disk(join(data_dir, "pcba/processed/arrow"))
         if dataset_name == "qm9":
-            return load_from_disk(join(data_dir, "qm9/processed/arrow_processed"))
+            return load_from_disk(join(data_dir, "qm9/processed/arrow"))
         raise ValueError("Invalid dataset name for pretraining.")
 
 

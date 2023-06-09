@@ -94,7 +94,10 @@ def main(
     )
 
     if not pretraining:
-        label_0 = dataset["train"][0]["labels"]
+        if "labels" in dataset["train"].column_names:
+            label_0 = dataset["train"][0]["labels"]
+        else:
+            label_0 = dataset["train"][0]["target"]
         if not isinstance(label_0, list):
             n_classes = 1
         else:

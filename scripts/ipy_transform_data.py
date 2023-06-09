@@ -1,7 +1,8 @@
-#TODO: consider adding the download of the data to this script
-#TODO: consider adding the huggingface data preprocessing to this script
-#%%
+# TODO: consider adding the download of the data to this script
+# TODO: consider adding the huggingface data preprocessing to this script
+# %%
 import os
+
 os.chdir("..")
 
 from utils import data as data_utils
@@ -11,38 +12,91 @@ from datasets import DatasetDict, load_from_disk
 from os.path import join
 import subprocess
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
+from tqdm import tqdm
 
 data_dir = "./data"
 # %%
-#load pcqm4mv2 data
-subprocess.run(["wget", "-P",join(data_dir,"pcqm4mv2/raw"),"http://ogb-data.stanford.edu/data/lsc/pcqm4m-v2-train.sdf.tar.gz"])
-subprocess.run(["tar", "-xf", join(data_dir,"pcqm4mv2/raw/pcqm4m-v2-train.sdf.tar.gz"),"-C", join(data_dir,"pcqm4mv2/raw/pcqm4m-v2-train.sdf")])
+# load pcqm4mv2 data
+subprocess.run(
+    [
+        "wget",
+        "-P",
+        join(data_dir, "pcqm4mv2/raw"),
+        "http://ogb-data.stanford.edu/data/lsc/pcqm4m-v2-train.sdf.tar.gz",
+    ]
+)
+subprocess.run(
+    [
+        "tar",
+        "-xf",
+        join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf.tar.gz"),
+        "-C",
+        join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
+    ]
+)
 
-#%%
-#load tox21 original data
-subprocess.run(["wget", "-P",join(data_dir,"tox21_original/raw"),"http://bioinf.jku.at/research/DeepTox/tox21_compoundData.csv"])
-subprocess.run(["wget", "-P",join(data_dir,"tox21_original/raw"),"http://bioinf.jku.at/research/DeepTox/tox21.sdf.gz"])
-subprocess.run(["gunzip",join(data_dir,"tox21_original/raw/tox21.sdf.gz")])
+# %%
+# load tox21 original data
+subprocess.run(
+    [
+        "wget",
+        "-P",
+        join(data_dir, "tox21_original/raw"),
+        "http://bioinf.jku.at/research/DeepTox/tox21_compoundData.csv",
+    ]
+)
+subprocess.run(
+    [
+        "wget",
+        "-P",
+        join(data_dir, "tox21_original/raw"),
+        "http://bioinf.jku.at/research/DeepTox/tox21.sdf.gz",
+    ]
+)
+subprocess.run(["gunzip", join(data_dir, "tox21_original/raw/tox21.sdf.gz")])
 
 
 # %%
-#load tox21 data
-subprocess.run(["wget", "-P",join(data_dir,"tox21/raw"),"https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/tox21.csv.gz"])
-subprocess.run(["gunzip",join(data_dir,"tox21/raw/tox21.csv.gz")])
+# load tox21 data
+subprocess.run(
+    [
+        "wget",
+        "-P",
+        join(data_dir, "tox21/raw"),
+        "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/tox21.csv.gz",
+    ]
+)
+subprocess.run(["gunzip", join(data_dir, "tox21/raw/tox21.csv.gz")])
 
-#%%
-#load pcba data
-subprocess.run(["wget", "-P",join(data_dir,"pcba/raw"),"https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/pcba.csv.gz"])
-subprocess.run(["gunzip",join(data_dir,"pcba/raw/pcba.csv.gz")])
+# %%
+# load pcba data
+subprocess.run(
+    [
+        "wget",
+        "-P",
+        join(data_dir, "pcba/raw"),
+        "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/pcba.csv.gz",
+    ]
+)
+subprocess.run(["gunzip", join(data_dir, "pcba/raw/pcba.csv.gz")])
 
-#%%
-#load qm9 data
-subprocess.run(["wget", "-P",join(data_dir,"qm9/raw"),"https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/molnet_publish/qm9.zip"])
-subprocess.run(["unzip",join(data_dir,"qm9/raw/qm9.zip"), "-d", join(data_dir,"qm9/raw")])
-subprocess.run(["rm",join(data_dir,"qm9/raw/qm9.zip")])
+# %%
+# load qm9 data
+subprocess.run(
+    [
+        "wget",
+        "-P",
+        join(data_dir, "qm9/raw"),
+        "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/molnet_publish/qm9.zip",
+    ]
+)
+subprocess.run(
+    ["unzip", join(data_dir, "qm9/raw/qm9.zip"), "-d", join(data_dir, "qm9/raw")]
+)
+subprocess.run(["rm", join(data_dir, "qm9/raw/qm9.zip")])
 
-#%%
-#load zinc data
+# %%
+# load zinc data
 zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="train")
 zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="val")
 zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="test")
@@ -52,7 +106,7 @@ del zinc
 
 # %%
 ds = data_utils.sdf_to_arrow(
-    join(data_dir,"pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
+    join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
     to_disk_location=join(data_dir, "pcqm4mv2/processed/arrow"),
 )
 
@@ -142,36 +196,91 @@ dataset_dict.save_to_disk(join(data_dir, "ZINC/processed/arrow"))
 # %%
 ds = data_utils.csv_to_arrow(
     join(data_dir, "pcba/raw/pcba.csv"),
-    include_conformer=False, #NOTE: for now because its very slow
+    include_conformer=False,  # NOTE: for now because its very slow
     to_disk_location=join(data_dir, "pcba/processed/arrow"),
     smiles_column=-1,
     id_column=-2,
     target_columns=list(range(0, 128)),
 )
 
-#Here start the mapping of the data to input format to the model
+# Here start the mapping of the data to input format to the model
 
-#%%
-data_utils.map_arrow_dataset_from_disk(join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False)
 # %%
-data_utils.map_arrow_dataset_from_disk(join(data_dir, "tox21_original/processed"), is_dataset_dict=True)
+data_utils.map_arrow_dataset_from_disk(
+    join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False
+)
 # %%
-data_utils.map_arrow_dataset_from_disk(join(data_dir, "tox21/processed"), is_dataset_dict=False)
+data_utils.map_arrow_dataset_from_disk(
+    join(data_dir, "tox21_original/processed"), is_dataset_dict=True
+)
 # %%
-data_utils.map_arrow_dataset_from_disk(join(data_dir, "qm9/processed"), is_dataset_dict=False)
-#%%
-data_utils.map_arrow_dataset_from_disk(join(data_dir, "ZINC/processed"), is_dataset_dict=True)
+data_utils.map_arrow_dataset_from_disk(
+    join(data_dir, "tox21/processed"), is_dataset_dict=False
+)
 # %%
-data_utils.map_arrow_dataset_from_disk(join(data_dir, "pcba/processed"), is_dataset_dict=False)
+data_utils.map_arrow_dataset_from_disk(
+    join(data_dir, "qm9/processed"), is_dataset_dict=False
+)
+# %%
+data_utils.map_arrow_dataset_from_disk(
+    join(data_dir, "ZINC/processed"), is_dataset_dict=True
+)
+# %%
+data_utils.map_arrow_dataset_from_disk(
+    join(data_dir, "pcba/processed"), is_dataset_dict=False
+)
 
 
 # %% Test out for samples with 0 edges
 dataset = DatasetDict.load_from_disk("data/tox21_original/processed/arrow")
-regular_sample = dataset["train"].filter(lambda example: example['id'] == 0)[0]
-zero_edge_sample = dataset["train"].filter(lambda example: example['id'] == 10206)[0]
-#%%
+regular_sample = dataset["train"].filter(lambda example: example["id"] == 0)[0]
+zero_edge_sample = dataset["train"].filter(lambda example: example["id"] == 10206)[0]
+# %%
 proc1 = graphormer_collator_utils.preprocess_item(zero_edge_sample)
 proc2 = graphormer_collator_utils.preprocess_item(regular_sample)
-#%%
+# %%
 collator = graphormer_collator_utils.GraphormerDataCollator()
 collator([proc1, proc2])
+
+# %% Test for batching, dataset and collator with focus on execution time
+collator = graphormer_collator_utils.GraphormerDataCollator()
+dataset_path =  "/home/alexander/temp/ZINC/processed/arrow"
+#dataset_path =  "data/ZINC/processed/arrow_processed"
+dataset = DatasetDict.load_from_disk(
+    dataset_path, keep_in_memory=True
+)["train"]
+# dataset.set_format(
+#     "numpy",
+#     columns=[
+#         "input_nodes",
+#         "input_edges",
+#         "attn_bias",
+#         "in_degree",
+#         "out_degree",
+#         "spatial_pos",
+#         "attn_edge_type",
+#         "labels",
+#     ],
+#     output_all_columns=False,
+# )
+
+dataset_size = len(dataset)
+tot_batches = 157
+#%% only loading, no collater
+batches = []
+for e in tqdm(range(157)):
+    data_batch = [graphormer_collator_utils.preprocess_item(dataset[(i + e) % dataset_size]) for i in range(64)]
+    batches.append(data_batch)
+#%% only collater, no loading. I think this time i can divide by number of cpus.
+for data_batch in tqdm(batches):
+    collated_batch = collator(data_batch)
+    {k: v.clone().detach().to("cuda") for k, v in collated_batch.items()}
+
+# %% loading + collater
+for e in tqdm(range(157)):
+    data_batch = [dataset[(i + e) % dataset_size] for i in range(64)]
+
+    collator(data_batch)
+# %%
+ds2 = dataset.with_format("numpy")
+# %%
