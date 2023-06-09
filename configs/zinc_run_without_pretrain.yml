@@ -2,7 +2,6 @@
 pretraining: False
 seed: 42
 batch_size: 256
-devices: [0, 1, 2, 3]
 
 # Data Settings
 data_args:

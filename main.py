@@ -78,8 +78,10 @@ def main(
     # Set up the training arguments
     # TODO: maybe add logic for hyperparameter search
 
-    setup_utils.setup_batch_size(config)
-    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, config["devices"]))
+    device_count = torch.cuda.device_count()
+    logger.info(f"Using CUDA devices: {[torch.cuda.get_device_properties(device_index) for device_index in range(device_count)]}")
+    setup_utils.setup_batch_size(config, device_count)
+    
 
     training_args = TrainingArguments(
         output_dir=os.path.join(logpath, "checkpoints"),
@@ -127,6 +129,7 @@ def main(
             model=model,
             args=TrainingArguments(
                 report_to=[],
+                output_dir=os.path.join(logpath, "checkpoints"),
                 **config["trainer_args"],
             ),
             data_collator=collator,

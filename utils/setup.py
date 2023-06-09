@@ -127,21 +127,21 @@ def setup_wandb(name:str, logdir: str):
 
     os.environ["WANDB_DIR"] = logdir#os.path.join(logdir, "wandb")
 
-def setup_batch_size(config: dict):
+def setup_batch_size(config: dict, n_devices: int):
     """
     Setup the batch size for the experiment. The batch size is divided by the number of devices and the gradient accumulation steps.
     
     Args:
     ----
-        config (dict): Configuration dictionary."""
+        config (dict): Configuration dictionary.
+        n_devices (int): Number of devices to use."""
 
     batch_size = config["batch_size"]
-    devices = config["devices"]
     gradient_accumulation_steps = config["trainer_args"]["gradient_accumulation_steps"]
-    per_device_batch_size = batch_size / (gradient_accumulation_steps * len(devices))
+    per_device_batch_size = batch_size / (gradient_accumulation_steps * n_devices)
     if not per_device_batch_size.is_integer():
         raise ValueError(
-            f"Batch size {batch_size} is not divisible by the number of devices {len(devices)} and the gradient accumulation steps {gradient_accumulation_steps}."
+            f"Batch size {batch_size} is not divisible by the number of devices {n_devices} and the gradient accumulation steps {gradient_accumulation_steps}."
         )
     config["trainer_args"]["per_device_train_batch_size"] = int(per_device_batch_size)
     config["trainer_args"]["per_device_eval_batch_size"] = int(per_device_batch_size)

@@ -2,7 +2,6 @@
 pretraining: True
 seed: 42
 batch_size: 64
-devices: [0]
 
 # Data Settings
 data_args:
