@@ -17,6 +17,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 import shutil
+import wandb
 
 def get_experiment_name(config, name=None):
     """
@@ -110,7 +111,7 @@ def get_commit(repo_path: str = "."):
     commit = head_ref.read_text().replace("\n", "")
     return commit
 
-def setup_wandb(name:str, logdir: str):
+def setup_wandb(name:str, logdir: str, config: dict):
     """
     Setup the wandb logger.
     """
@@ -126,6 +127,13 @@ def setup_wandb(name:str, logdir: str):
     os.environ["WANDB_NAME"] = name
 
     os.environ["WANDB_DIR"] = logdir#os.path.join(logdir, "wandb")
+
+    wandb.init()
+    copied_dict = config.copy()
+    del copied_dict["trainer_args"]
+    del copied_dict["model_args"]
+
+    wandb.config.update(copied_dict)
 
 def setup_batch_size(config: dict, n_devices: int):
     """

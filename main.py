@@ -19,18 +19,18 @@ import numpy as np
 import torch
 import yaml
 from transformers import (
-    GraphormerConfig,
-    GraphormerForGraphClassification,
     Trainer,
     TrainingArguments,
 )
 import wandb
+
 
 # Local application imports
 from utils import data as data_utils
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
 from utils import setup as setup_utils
 from utils import evaluate as evaluate_utils
+from utils.modeling_graphormer_improved import BetterGraphormerConfig, GraphormerForPretraining, GraphormerForGraphClassification #TODO: consider moving the file into a seperate folder
 
 
 def main(
@@ -50,14 +50,14 @@ def main(
         yaml_file (str): The yaml file with the config.
         from_pretrained (str): Path to a pretrained model.
     """
-    # TODO: Implement the logic of the main function
+
     with open(yaml_file, "r") as file:
         config = yaml.safe_load(file)
 
     name = setup_utils.get_experiment_name(config, name)
     logpath = os.path.join(logdir, name)
     logger = setup_utils.setup_logging(logpath, name, yaml_file)
-    setup_utils.setup_wandb(name, logdir)
+    setup_utils.setup_wandb(name, logdir, config)
 
     seed = config["seed"]  # TODO: maybe allow multiple seeds with a loop
     logger.info(f"Set the random seed to : {seed}")
@@ -68,8 +68,10 @@ def main(
 
     # TODO: move below to a seperate function maybe
     pretraining = config["pretraining"]
+    logger.info(f"For this run pretraining is : {pretraining}")
+
     dataset = data_utils.prepare_dataset_for_training(
-        pretraining, **config["data_args"]
+        pretraining, seed, **config["data_args"]
     )
     evaluation_func = evaluate_utils.prepare_evaluation_for_training(
         pretraining, **config["data_args"]
@@ -108,7 +110,7 @@ def main(
                 from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
             )
         else:
-            model_config = GraphormerConfig(
+            model_config = BetterGraphormerConfig(
                 num_classes=n_classes, **config["model_args"]
             )
             model = GraphormerForGraphClassification(model_config)
@@ -134,6 +136,8 @@ def main(
             args=TrainingArguments(
                 report_to=[],
                 output_dir=os.path.join(logpath, "checkpoints"),
+                seed=seed,
+                data_seed=seed,
                 **config["trainer_args"],
             ),
             data_collator=collator,
@@ -146,9 +150,30 @@ def main(
 
         # Log the results
         wandb.log(test_results)
+    
+    else:
+        model_config = BetterGraphormerConfig(**config["model_args"])
+        model = GraphormerForPretraining(model_config)
+        setup_utils.log_model_params(model, logger)
+        
+        on_the_fly_processing = False if config["data_args"]["memory_mode"]=="full" else True
+        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3, on_the_fly_processing=on_the_fly_processing)
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset["train"],
+            eval_dataset=dataset["validation"],
+            data_collator=collator,
+            compute_metrics=evaluation_func,
+        )
+
+        trainer.train()
+
+
 
     # TODO: Implement the pretraining logic
-
+    
 
 if __name__ == "__main__":
     parser = ArgumentParser()

@@ -21,6 +21,7 @@ from os.path import join
 import torch
 from torch_geometric.data.dataset import Dataset as PyGDataset
 from torch.utils.data import Dataset as TorchDataset
+import wandb
 
 from datasets import Dataset, Value, Features, Sequence, load_from_disk, DatasetDict
 from rdkit import Chem
@@ -533,7 +534,13 @@ def map_arrow_dataset_from_disk(dataset_location: str, is_dataset_dict: bool = F
 
 
 def prepare_dataset_for_training(
-    pretraining: bool, dataset_name: str, data_dir: str, memory_mode: str, **kwargs
+    pretraining: bool,
+    seed: int,
+    dataset_name: str,
+    data_dir: str,
+    memory_mode: str,
+    train_split: Optional[float] = None,
+    **kwargs,
 ):
     """
     Prepare the dataset for training.
@@ -541,10 +548,13 @@ def prepare_dataset_for_training(
     Args
     ----
         pretraining (bool): Whether to use the pretraining dataset or the finetuning dataset.
+        seed (int): The random seed to use for splitting the dataset.
         dataset_name (str): Name of the dataset.
         data_dir (str): Path to the data directory.
         memory_mode (str): Whether to load the dataset in memory or not. Can be one of ['full', 'half', 'cache'].
+        train_split (float): The percentage of the dataset to use for training. Only used for finetuning.
     """
+
 
     path_extension = "_processed" if memory_mode == "full" else ""
 
@@ -560,7 +570,7 @@ def prepare_dataset_for_training(
                 join(data_dir, "tox21/processed/arrow" + path_extension),
                 keep_in_memory=True,
             )
-            dataset = split_dataset(dataset, 0.2, **kwargs)
+            dataset = split_dataset(dataset, train_split, seed)
 
         if dataset_name == "ZINC":
             dataset = DatasetDict.load_from_disk(
@@ -572,7 +582,7 @@ def prepare_dataset_for_training(
             dataset = load_from_disk(
                 join(data_dir, "qm9/processed/arrow" + path_extension)
             )
-            dataset = split_dataset(dataset, 0.2, **kwargs)
+            dataset = split_dataset(dataset, train_split, seed)
 
     else:
         if dataset_name == "pcqm4mv2":
@@ -587,6 +597,8 @@ def prepare_dataset_for_training(
             dataset = load_from_disk(
                 join(data_dir, "qm9/processed/arrow" + path_extension)
             )
+        if dataset is not None:
+            dataset = split_dataset(dataset, train_split, seed)
 
     if dataset is None:
         raise ValueError(f"Invalid dataset name for pretraining = {pretraining}.")
@@ -613,14 +625,11 @@ def split_dataset(dataset: Dataset, train_split: float, seed: int):
     )
 
     test_val_dataset = Dataset.train_test_split(
-        dataset["test_val"], test_size=0.5, seed=seed, shuffle=True
+        dataset["test"], test_size=0.5, seed=seed, shuffle=True
     )
 
-    # Now, 'test_val_dataset' contains our validation and test datasets, so we add them back to our original 'dataset' dictionary
-    dataset["validation"] = test_val_dataset["train"]
-    dataset["test"] = test_val_dataset["test"]
 
-    return DatasetDict(dataset)
+    return DatasetDict({"train":dataset["train"], "validation":test_val_dataset["train"], "test":test_val_dataset["test"]})
 
 
 def to_preloaded_dataset(dataset: Union[Dataset, DatasetDict]):

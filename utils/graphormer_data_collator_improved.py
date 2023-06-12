@@ -226,17 +226,19 @@ class GraphormerDataCollator:
 
         batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
 
-        sample = features[0]["labels"]
+        # Only add labels if they are in the features. For inference, or pretraining, the features won't have labels.
+        if "labels" in features[0].keys():
+            sample = features[0]["labels"]
 
-        if not isinstance(sample, list):  # one task
-            batch["labels"] = torch.tensor([i["labels"] for i in features])
-        elif len(sample) == 1:
-            batch["labels"] = torch.from_numpy(
-                np.concatenate([i["labels"] for i in features])
-            )
-        else:  # multi task classification, left to float to keep the NaNs
-            batch["labels"] = torch.from_numpy(
-                np.stack([i["labels"] for i in features])
-            )
+            if not isinstance(sample, list):  # one task
+                batch["labels"] = torch.tensor([i["labels"] for i in features])
+            elif len(sample) == 1:
+                batch["labels"] = torch.from_numpy(
+                    np.concatenate([i["labels"] for i in features])
+                )
+            else:  # multi task classification, left to float to keep the NaNs
+                batch["labels"] = torch.from_numpy(
+                    np.stack([i["labels"] for i in features])
+                )
 
         return batch
