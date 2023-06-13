@@ -35,7 +35,7 @@ from tqdm import tqdm
 from typing import Iterable, Optional, List, Union
 
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
-
+import random
 
 x_map = {
     "atomic_num": list(range(0, 119)),
@@ -569,7 +569,6 @@ def prepare_dataset_for_training(
                 join(data_dir, "tox21/processed/arrow" + path_extension),
                 keep_in_memory=True,
             )
-            dataset = split_dataset(dataset, train_split, seed)
 
         if dataset_name == "ZINC":
             dataset = DatasetDict.load_from_disk(
@@ -581,12 +580,12 @@ def prepare_dataset_for_training(
             dataset = load_from_disk(
                 join(data_dir, "qm9/processed/arrow" + path_extension)
             )
-            dataset = split_dataset(dataset, train_split, seed)
 
     else:
         if dataset_name == "pcqm4mv2":
             dataset = load_from_disk(
-                join(data_dir, "pcqm4mv2/processed/arrow" + path_extension)
+                join(data_dir, "pcqm4mv2/processed/arrow" + path_extension),
+                keep_in_memory=False,
             )
         if dataset_name == "pcba":
             dataset = load_from_disk(
@@ -596,8 +595,6 @@ def prepare_dataset_for_training(
             dataset = load_from_disk(
                 join(data_dir, "qm9/processed/arrow" + path_extension)
             )
-        if dataset is not None:
-            dataset = split_dataset(dataset, train_split, seed)
 
     if dataset is None:
         raise ValueError(f"Invalid dataset name for pretraining = {pretraining}.")
@@ -607,10 +604,76 @@ def prepare_dataset_for_training(
             dataset, format_numpy=True if memory_mode == "full" else False
         )
 
+    if not isinstance(dataset, DatasetDict):
+        split_dataset(dataset, train_split, seed)
+
     return dataset
 
 
-def split_dataset(dataset: Dataset, train_split: float, seed: int):
+class PreloadedDataset(TorchDataset):
+    """
+    A preloaded dataset. This is useful when the dataset is small enough to fit in memory.
+    """
+
+    def __init__(
+        self,
+        dataset: Union[Dataset, list],
+        format_numpy: bool = True,
+        column_names: Optional[list] = None,
+    ):
+        """
+        Args
+        ----
+            dataset (Dataset): The dataset to preload.
+            format_numpy (bool): Whether to convert the dataset to numpy or not.
+        """
+        if isinstance(dataset, list):
+            self.rows = dataset
+            self.column_names = column_names
+        else:
+            if format_numpy:
+                dataset.set_format(type="numpy", columns=list(dataset.column_names))
+            self.column_names = dataset.column_names
+            self.rows = []
+            for i in tqdm(range(len(dataset))):
+                self.rows.append(dataset[i])
+            del dataset
+
+    def train_test_split(self, test_size=0.8, seed=None, shuffle=True):
+        """
+        Split the dataset into train and test set.
+
+        Args
+        ----
+            test_size (float): The ratio of the test set.
+            seed (int): The seed for the random number generator.
+            shuffle (bool): Whether to shuffle the dataset before splitting.
+        """
+        if shuffle:
+            rng = random.Random(seed)
+            rng.shuffle(self.rows)
+
+        split_index = int(len(self.rows) * test_size)
+        # NOTE: Thats dirty, but it works
+        return {
+            "test": PreloadedDataset(
+                self.rows[:split_index], column_names=self.column_names
+            ),
+            "train": PreloadedDataset(
+                self.rows[split_index:], column_names=self.column_names
+            ),
+        }
+
+    def __getitem__(self, idx):
+        return self.rows[idx]
+
+    def __len__(self):
+        return len(self.rows)
+
+
+def split_dataset(
+    dataset: Union[Dataset, PreloadedDataset], train_split: float, seed: int
+):
     """
     Split the dataset into train, validation and test set.
 
@@ -621,21 +684,20 @@ def split_dataset(dataset: Dataset, train_split: float, seed: int):
         seed (int): The seed for the random number generator.
     """
     # TODO: check for bugs
+
     dataset = dataset.train_test_split(
         test_size=1 - train_split, seed=seed, shuffle=True
     )
 
-    test_val_dataset = Dataset.train_test_split(
-        dataset["test"], test_size=0.5, seed=seed, shuffle=True
+    test_val_dataset = dataset["test"].train_test_split(
+        test_size=0.5, seed=seed, shuffle=True
     )
 
-    return DatasetDict(
-        {
-            "train": dataset["train"],
-            "validation": test_val_dataset["train"],
-            "test": test_val_dataset["test"],
-        }
-    )
+    return {
+        "train": dataset["train"],
+        "validation": test_val_dataset["train"],
+        "test": test_val_dataset["test"],
+    }
 
 
 def to_preloaded_dataset(
@@ -653,30 +715,3 @@ def to_preloaded_dataset(
         return {k: to_preloaded_dataset(v, format_numpy) for k, v in dataset.items()}
 
     return PreloadedDataset(dataset, format_numpy)
-
-
-class PreloadedDataset(TorchDataset):
-    """
-    A preloaded dataset. This is useful when the dataset is small enough to fit in memory.
-    """
-
-    def __init__(self, dataset: Dataset, format_numpy: bool = True):
-        """
-        Args
-        ----
-            dataset (Dataset): The dataset to preload.
-            format_numpy (bool): Whether to convert the dataset to numpy or not.
-        """
-        if format_numpy:
-            dataset.set_format(type="numpy", columns=list(dataset.column_names))
-        self.column_names = dataset.column_names
-        self.rows = []
-        for i in tqdm(range(len(dataset))):
-            self.rows.append(dataset[i])
-        del dataset
-
-    def __getitem__(self, idx):
-        return self.rows[idx]
-
-    def __len__(self):
-        return len(self.rows)
