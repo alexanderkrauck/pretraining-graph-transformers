@@ -8,11 +8,14 @@ os.chdir("..")
 from utils import data as data_utils
 import torch_geometric as pyg
 from utils import ZincWithRDKit
-from datasets import DatasetDict, load_from_disk
+from datasets import DatasetDict, load_from_disk, IterableDataset
 from os.path import join
 import subprocess
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
 from tqdm import tqdm
+import numpy as np
+import time
+
 
 data_dir = "./data"
 # %%
@@ -244,31 +247,41 @@ collator([proc1, proc2])
 
 # %% Test for batching, dataset and collator with focus on execution time
 collator = graphormer_collator_utils.GraphormerDataCollator()
-dataset_path =  "/home/alexander/temp/ZINC/processed/arrow"
+#dataset_path =  "/home/alexander/temp/ZINC/processed/arrow"
+dataset_path =  "data/pcqm4mv2/processed/arrow"
 #dataset_path =  "data/ZINC/processed/arrow_processed"
-dataset = DatasetDict.load_from_disk(
-    dataset_path, keep_in_memory=True
-)["train"]
-# dataset.set_format(
-#     "numpy",
-#     columns=[
-#         "input_nodes",
-#         "input_edges",
-#         "attn_bias",
-#         "in_degree",
-#         "out_degree",
-#         "spatial_pos",
-#         "attn_edge_type",
-#         "labels",
-#     ],
-#     output_all_columns=False,
-# )
+dataset = load_from_disk(
+    dataset_path, keep_in_memory=False
+)
+if isinstance(dataset, DatasetDict):
+    dataset = dataset["train"]
 
+
+dataset.cleanup_cache_files()
 dataset_size = len(dataset)
-tot_batches = 157
-#%% only loading, no collater
+tot_batches = 1000
+batch_size = 256
+
+#dataset = dataset.shuffle()
+
+#%% random index data
+_start = time.time()
+n = batch_size * tot_batches
+for i in np.random.default_rng(43).integers(0, len(dataset), size=n):
+    _ = dataset[int(i)]
+print((time.time() - _start)/tot_batches)
+#%% only loading
 batches = []
-for e in tqdm(range(157)):
+for e in tqdm(range(tot_batches)):
+    data_batch = [dataset[(i + e * batch_size) % dataset_size] for i in range(batch_size)]
+    batches.append(data_batch)
+#%% only loading
+samples = []
+for i in tqdm(range(100 * batch_size)):
+    samples.append(dataset[i + 1000000])
+#%% only loading and preparing (for not processed arrow) no collater
+batches = []
+for e in tqdm(range(tot_batches)):
     data_batch = [graphormer_collator_utils.preprocess_item(dataset[(i + e) % dataset_size]) for i in range(64)]
     batches.append(data_batch)
 #%% only collater, no loading. I think this time i can divide by number of cpus.
@@ -277,10 +290,38 @@ for data_batch in tqdm(batches):
     {k: v.clone().detach().to("cuda") for k, v in collated_batch.items()}
 
 # %% loading + collater
-for e in tqdm(range(157)):
-    data_batch = [dataset[(i + e) % dataset_size] for i in range(64)]
+for e in tqdm(range(10)):
+    data_batch = [dataset[(i + e * batch_size) % dataset_size] for i in range(batch_size)]
 
     collator(data_batch)
 # %%
 ds2 = dataset.with_format("numpy")
+# %% other dataset testing
+class PreloadedDataset:
+    def __init__(self, dataset):
+        #dataset.set_format(type='numpy', columns=list(dataset.column_names))
+        self.rows = []
+        for i in tqdm(dataset):
+            self.rows.append(i)
+        del dataset
+
+    def __getitem__(self, idx):
+        return self.rows[idx]
+
+    def __len__(self):
+        return len(self.rows)
+
+#%% usage
+dataset = PreloadedDataset(dataset= dataset)
+# %%
+batches = []
+dataset_size = len(dataset)
+for e in tqdm(range(157)):
+    data_batch = [dataset[(i + e * 64) % dataset_size] for i in range(64)]
+    batches.append(data_batch)
+# %%
+collator = graphormer_collator_utils.GraphormerDataCollator(on_the_fly_processing=False)
+for batch in tqdm(batches):
+
+    collator(batch)
 # %%

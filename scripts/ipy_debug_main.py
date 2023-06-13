@@ -14,7 +14,7 @@ yaml_file="configs/dummy_pretraining_config.yml"
 from_pretrained = None
 
 # %%
-trainer = main(name = name, logdir = logdir, yaml_file=yaml_file)
+main(name = name, logdir = logdir, yaml_file=yaml_file)
 #%%
 dl = trainer.get_train_dataloader()
 #%%
