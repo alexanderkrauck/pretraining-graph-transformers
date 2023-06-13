@@ -604,8 +604,8 @@ def prepare_dataset_for_training(
             dataset, format_numpy=True if memory_mode == "full" else False
         )
 
-    if not isinstance(dataset, DatasetDict):
-        split_dataset(dataset, train_split, seed)
+    if isinstance(dataset, Dataset) or isinstance(dataset, PreloadedDataset):
+        dataset = split_dataset(dataset, train_split, seed)
 
     return dataset
 
