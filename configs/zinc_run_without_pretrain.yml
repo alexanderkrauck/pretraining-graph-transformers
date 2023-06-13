@@ -45,8 +45,9 @@ model_args:
   ffn_embedding_dim: 80 # The dimensionality of the embedding between the 2 FFN layers in each transformer block.
   num_attention_heads: 8  # number of attention heads for transformer model
   num_hidden_layers: 12  # number of hidden layers in the transformer encoder
+  activation_dropout: 0.0
   attention_dropout: 0.1  # The dropout probability for the attention weights.
-  dropout: 0.0 # The dropout probability for all fully connected layers in the embeddings, encoder, and pooler.
+  dropout: 0.1 # The dropout probability for all fully connected layers in the embeddings, encoder, and pooler.
   num_atoms: 4608 # = 512 * 9
   num_edges: 1536 # = 512 * 3
   num_in_degree: 512 # Maximal number of in-degree for each node for the embedding in the beginning of the model.
@@ -56,6 +57,6 @@ model_args:
   edge_type: "multihop" # What type of edge processing to use. Eiter "multihop" or something else (arbitrary)
   activation_fn: "gelu" # Activation function used in the model
   layerdrop: 0.0
-  apply_graphormer_init: False # Apply the graphormer additional initialization to the model. #NOTE: not 100% sure what this does
-  encoder_normalize_before: False # Apply the layer norm before each encoder block.
+  apply_graphormer_init: True # Apply the graphormer additional initialization to the model. #NOTE: not 100% sure what this does
+  encoder_normalize_before: True # Apply the layer norm before each encoder block.
   pre_layernorm: False # Apply layernorm before self attention and the feed forward network. Without this, post layernorm will be used.
