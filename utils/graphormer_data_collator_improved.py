@@ -241,4 +241,6 @@ class GraphormerDataCollator:
                     np.stack([i["labels"] for i in features])
                 )
 
+        batch["return_loss"] = True
+
         return batch

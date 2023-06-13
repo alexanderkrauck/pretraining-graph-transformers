@@ -193,20 +193,20 @@ class GraphormerGraphNodeFeature(nn.Module):
 
         self.graph_token = nn.Embedding(1, config.hidden_size)
 
-    def forward(self, input_nodes, in_degree, out_degree):
-        n_graph, n_node = input_nodes.size()[:2]
-
+    def forward(self, input_nodes, in_degree, out_degree, add_graph_token=True):
         node_feature = (  # node feature + graph token
             self.atom_encoder(input_nodes).sum(dim=-2)  # [n_graph, n_node, n_hidden]
             + self.in_degree_encoder(in_degree)
             + self.out_degree_encoder(out_degree)
         )
+        if add_graph_token:
+            graph_token_feature = self.graph_token.weight.unsqueeze(0).repeat(
+                input_nodes.shape[0], 1, 1
+            )
 
-        graph_token_feature = self.graph_token.weight.unsqueeze(0).repeat(n_graph, 1, 1)
+            node_feature = torch.cat([graph_token_feature, node_feature], dim=1)
 
-        graph_node_feature = torch.cat([graph_token_feature, node_feature], dim=1)
-
-        return graph_node_feature
+        return node_feature
 
 
 class GraphormerGraphAttnBias(nn.Module):
@@ -928,7 +928,9 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
         self.encoder = GraphormerModel(config)
         self.embedding_dim = config.embedding_dim
         self.num_classes = config.num_classes
-        self.classifier_head = GraphormerDecoderHead(self.embedding_dim, self.num_classes)
+        self.classifier_head = GraphormerDecoderHead(
+            self.embedding_dim, self.num_classes
+        )
         self.is_encoder_decoder = True
 
         # Initialize weights and apply final processing
@@ -966,7 +968,6 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
             encoder_outputs["hidden_states"],
         )
 
-        
         clf_outputs = outputs[:, 0]
         logits = self.classifier_head(clf_outputs).contiguous()
 
@@ -1115,14 +1116,12 @@ class GraphormerForPretraining(
                 loss = self.loss(
                     decoded_masked_outputs_logits,
                     self.target_embedding(
-                        input_nodes[mask], in_degree[mask], out_degree[mask]
+                        input_nodes[mask],
+                        in_degree[mask],
+                        out_degree[mask],
+                        add_graph_token=False,
                     ),
                 )
-
-            decoded_masked_outputs_logits = self.decoder(masked_outputs)
-
-            # Calculate the loss
-            loss = self.loss(decoded_masked_outputs_logits, input_nodes[mask])
 
         return {
             "loss": loss,
