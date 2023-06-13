@@ -3,15 +3,64 @@ import os
 os.chdir("..")
 
 from main import main
+import time
+from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 #%%
-name = "*time*_test"
+name = "*time*_test_pretrain"
 logdir = "runs"
-yaml_file="configs/dummy_config.yml"
+yaml_file="configs/dummy_pretraining_config.yml"
 from_pretrained = None
 
 # %%
-main(name = name, logdir = logdir, yaml_file=yaml_file)
+trainer = main(name = name, logdir = logdir, yaml_file=yaml_file)
+#%%
+dl = trainer.get_train_dataloader()
+#%%
+def test_dl_speed(data_loader, times= 10):
+    i = 0
+    _start = time.time()
+    batches = []
+    for batch in data_loader:
+        _end = time.time()
+        batches.append(batch)
+        print(f"Time taken for batch {i}: {_end-_start}")
+
+        _start = time.time()
+
+        i+=1
+        if i==times:
+            break
+
+#%%
+dataset = trainer.train_dataset
+dataset = dataset.shuffle()
+
+dl2 = DataLoader(
+        dataset,
+        batch_size=256,
+        shuffle=False,
+        #sampler=None,
+        collate_fn=trainer.data_collator,
+        drop_last=False,
+        #num_workers=1,
+        #pin_memory=True,
+        #worker_init_fn=dl.worker_init_fn,
+    )
+test_dl_speed(dl2, times=10)
+#%%
+dataset = trainer.train_dataset
+dataset = dataset.shuffle()
+tot_batches = 10
+batch_size = 256
+dataset_size = len(dataset)
+batches2 = []
+for e in tqdm(range(tot_batches)):
+    data_batch = [dataset[(i + e * batch_size) % dataset_size] for i in range(batch_size)]
+    #data_batch = trainer.data_collator(data_batch)
+    batches2.append(data_batch)
+
 # %%Here if i want to debug the main.py script in ipython
 # Standard library imports
 import os
@@ -53,6 +102,10 @@ torch.cuda.manual_seed_all(seed)
 
 # TODO: move below to a seperate function maybe
 pretraining = config["pretraining"]
+
+wandb.config.update(config["data_args"])
+wandb.config.pretraining = pretraining
+
 dataset = data_utils.prepare_dataset_for_training(
     pretraining, **config["data_args"]
 )

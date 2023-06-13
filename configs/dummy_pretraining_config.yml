@@ -1,19 +1,19 @@
 # General Settings
 pretraining: True
 seed: 42
-batch_size: 64
+batch_size: 256
 
 # Data Settings
 data_args:
   dataset_name: 'pcqm4mv2'  # dataset name
   data_dir: 'data'  # directory where the dataset is located
-  memory_mode: 'cache'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
+  memory_mode: 'half'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
   train_split: 0.999  # proportion of data for training, the rest is for validation/testing unless predefined split exists.
 
 # Trainer Settings, see https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments
 trainer_args: 
-  gradient_accumulation_steps: 4
-  dataloader_num_workers: 8 # number of subprocesses for data loading
+  gradient_accumulation_steps: 1
+  dataloader_num_workers: 4 # number of subprocesses for data loading
   remove_unused_columns: False 
 
   optim: "adamw_torch" 
@@ -32,9 +32,9 @@ trainer_args:
   evaluation_strategy: 'steps'
   logging_strategy: 'steps'
   save_strategy: 'steps'
-  eval_steps: 1000
+  eval_steps: 100
   logging_steps: 100
-  save_steps: 1000
+  save_steps: 100
   do_eval: True  # whether to run evaluation during training
 
   save_total_limit: 10  # limit the total amount of checkpoints and deletes the older checkpoints
@@ -62,3 +62,10 @@ model_args:
   apply_graphormer_init: False # Apply the graphormer additional initialization to the model. #NOTE: not 100% sure what this does
   encoder_normalize_before: False # Apply the layer norm before each encoder block.
   pre_layernorm: False # Apply layernorm before self attention and the feed forward network. Without this, post layernorm will be used.
+
+  pretraining_method: "mask_prediction"
+  num_node_properties: 9
+  num_edge_properties: 3
+  single_embedding_offset: 512
+  mask_prob: 0.1
+  reconstruction_method: "embedding_prediction"

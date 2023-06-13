@@ -555,7 +555,6 @@ def prepare_dataset_for_training(
         train_split (float): The percentage of the dataset to use for training. Only used for finetuning.
     """
 
-
     path_extension = "_processed" if memory_mode == "full" else ""
 
     if not pretraining:
@@ -604,7 +603,9 @@ def prepare_dataset_for_training(
         raise ValueError(f"Invalid dataset name for pretraining = {pretraining}.")
 
     if memory_mode in ["full", "half"]:
-        dataset = to_preloaded_dataset(dataset)
+        dataset = to_preloaded_dataset(
+            dataset, format_numpy=True if memory_mode == "full" else False
+        )
 
     return dataset
 
@@ -628,22 +629,30 @@ def split_dataset(dataset: Dataset, train_split: float, seed: int):
         dataset["test"], test_size=0.5, seed=seed, shuffle=True
     )
 
+    return DatasetDict(
+        {
+            "train": dataset["train"],
+            "validation": test_val_dataset["train"],
+            "test": test_val_dataset["test"],
+        }
+    )
 
-    return DatasetDict({"train":dataset["train"], "validation":test_val_dataset["train"], "test":test_val_dataset["test"]})
 
-
-def to_preloaded_dataset(dataset: Union[Dataset, DatasetDict]):
+def to_preloaded_dataset(
+    dataset: Union[Dataset, DatasetDict], format_numpy: bool = True
+):
     """
     Convert a dataset to a preloaded dataset.
 
     Args
     ----
         dataset (Union[Dataset, DatasetDict]): The dataset to convert.
+        format_numpy (bool): Whether to convert the dataset to numpy or not.
     """
     if isinstance(dataset, DatasetDict):
-        return {k: to_preloaded_dataset(v) for k, v in dataset.items()}
+        return {k: to_preloaded_dataset(v, format_numpy) for k, v in dataset.items()}
 
-    return PreloadedDataset(dataset)
+    return PreloadedDataset(dataset, format_numpy)
 
 
 class PreloadedDataset(TorchDataset):
@@ -651,13 +660,15 @@ class PreloadedDataset(TorchDataset):
     A preloaded dataset. This is useful when the dataset is small enough to fit in memory.
     """
 
-    def __init__(self, dataset: Dataset):
+    def __init__(self, dataset: Dataset, format_numpy: bool = True):
         """
         Args
         ----
             dataset (Dataset): The dataset to preload.
+            format_numpy (bool): Whether to convert the dataset to numpy or not.
         """
-        dataset.set_format(type="numpy", columns=list(dataset.column_names))
+        if format_numpy:
+            dataset.set_format(type="numpy", columns=list(dataset.column_names))
         self.column_names = dataset.column_names
         self.rows = []
         for i in tqdm(range(len(dataset))):
