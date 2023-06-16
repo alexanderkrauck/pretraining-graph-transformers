@@ -67,7 +67,7 @@ class ZincWithRDKit(ZINC):
     ):
         super().__init__(root, subset, split, transform, pre_transform, pre_filter)
 
-    def to_rdkit_molecule_list(self):
+    def to_rdkit_molecule_list(self, embed_mols: bool = True):
         """Converts the dataset to a list of RDKit molecules.
 
         Returns:
@@ -110,10 +110,9 @@ class ZincWithRDKit(ZINC):
                 print("Sanitization failed. Skipping molecule.")
                 return None
 
-            AllChem.EmbedMolecule(mol)
-
-            # Optimize the generated conformer
-            AllChem.MMFFOptimizeMolecule(mol)
+            if embed_mols:
+                AllChem.EmbedMolecule(mol)
+                AllChem.MMFFOptimizeMolecule(mol)
 
             mols.append(mol)
 
