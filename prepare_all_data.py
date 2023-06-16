@@ -1,13 +1,9 @@
-# TODO: consider adding the download of the data to this script
-# TODO: consider adding the huggingface data preprocessing to this script
 import os
-from utils import data as data_utils
-import torch_geometric as pyg
+from utils import preprocessing as preprocessing_utils
 from utils import ZincWithRDKit
-from datasets import DatasetDict, load_from_disk
+from datasets import DatasetDict
 from os.path import join
 import subprocess
-from utils import graphormer_data_collator_improved as graphormer_collator_utils
 from argparse import ArgumentParser
 
 
@@ -111,14 +107,14 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
 
     # Here start the data processing to arrow format
     print("processing pcqm4mv2 data to arrow format")
-    ds = data_utils.sdf_to_arrow(
+    ds = preprocessing_utils.sdf_to_arrow(
         join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
         to_disk_location=join(data_dir, "pcqm4mv2/processed/arrow"),
         cache_dir=join(data_dir, "huggingface"),
     )
 
     print("processing tox21 original data to arrow format")
-    ds_train = data_utils.sdf_to_arrow(
+    ds_train = preprocessing_utils.sdf_to_arrow(
         join(data_dir, "tox21_original/raw/tox21.sdf"),
         to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
         target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -127,7 +123,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         take_split="training",
         cache_dir=join(data_dir, "huggingface")
     )
-    ds_val = data_utils.sdf_to_arrow(
+    ds_val = preprocessing_utils.sdf_to_arrow(
         join(data_dir, "tox21_original/raw/tox21.sdf"),
         to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
         target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -136,7 +132,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         take_split="validation",
         cache_dir=join(data_dir, "huggingface")
     )
-    ds_test = data_utils.sdf_to_arrow(
+    ds_test = preprocessing_utils.sdf_to_arrow(
         join(data_dir, "tox21_original/raw/tox21.sdf"),
         to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
         target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -156,7 +152,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     dataset_dict.save_to_disk(join(data_dir, "tox21_original/processed/arrow"))
 
     print("processing tox21 data to arrow format")
-    ds = data_utils.csv_to_arrow(
+    ds = preprocessing_utils.csv_to_arrow(
         join(data_dir, "tox21/raw/tox21.csv"),
         to_disk_location=join(data_dir, "tox21/processed/arrow"),
         include_conformer=create_conformers,
@@ -165,7 +161,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     )
 
     print("processing pcba data to arrow format")
-    ds = data_utils.csv_to_arrow(
+    ds = preprocessing_utils.csv_to_arrow(
         join(data_dir, "pcba/raw/pcba.csv"),
         include_conformer=create_conformers,  # NOTE: for now because its very slow
         to_disk_location=join(data_dir, "pcba/processed/arrow"),
@@ -176,7 +172,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     )
 
     print("processing qm9 data to arrow format")
-    ds = data_utils.sdf_to_arrow(
+    ds = preprocessing_utils.sdf_to_arrow(
         join(data_dir, "qm9/raw/gdb9.sdf"),
         to_disk_location=join(data_dir, "qm9/processed/arrow"),
         csv_with_metainfo=join(data_dir, "qm9/raw/gdb9.sdf.csv"),
@@ -207,7 +203,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     print("processing zinc data to arrow format")
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="train")
     mol_list = zinc.to_rdkit_molecule_list()
-    ds_train = data_utils.rdkit_to_arrow(
+    ds_train = preprocessing_utils.rdkit_to_arrow(
         mol_list,
         target_list=zinc.y.numpy().tolist(),
         cache_dir=join(data_dir, "huggingface")
@@ -215,7 +211,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
 
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="val")
     mol_list = zinc.to_rdkit_molecule_list()
-    ds_val = data_utils.rdkit_to_arrow(
+    ds_val = preprocessing_utils.rdkit_to_arrow(
         mol_list,
         target_list=zinc.y.numpy().tolist(),
         cache_dir=join(data_dir, "huggingface")
@@ -223,7 +219,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
 
     zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="test")
     mol_list = zinc.to_rdkit_molecule_list()
-    ds_test = data_utils.rdkit_to_arrow(
+    ds_test = preprocessing_utils.rdkit_to_arrow(
         mol_list,
         target_list=zinc.y.numpy().tolist(),
         cache_dir=join(data_dir, "huggingface")
@@ -243,32 +239,32 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
     print("mapping data to input format to the model")
 
     print("mapping pcqm4mv2 data to input format to the model")
-    data_utils.map_arrow_dataset_from_disk(
+    preprocessing_utils.map_arrow_dataset_from_disk(
         join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False
     )
 
     print("mapping tox21_original data to input format to the model")
-    data_utils.map_arrow_dataset_from_disk(
+    preprocessing_utils.map_arrow_dataset_from_disk(
         join(data_dir, "tox21_original/processed"), is_dataset_dict=True
     )
 
     print("mapping tox21 data to input format to the model")
-    data_utils.map_arrow_dataset_from_disk(
+    preprocessing_utils.map_arrow_dataset_from_disk(
         join(data_dir, "tox21/processed"), is_dataset_dict=False
     )
 
     print("mapping pcba data to input format to the model")
-    data_utils.map_arrow_dataset_from_disk(
+    preprocessing_utils.map_arrow_dataset_from_disk(
         join(data_dir, "qm9/processed"), is_dataset_dict=False
     )
 
     print("mapping qm9 data to input format to the model")
-    data_utils.map_arrow_dataset_from_disk(
+    preprocessing_utils.map_arrow_dataset_from_disk(
         join(data_dir, "ZINC/processed"), is_dataset_dict=True
     )
 
     print("mapping pcba data to input format to the model")
-    data_utils.map_arrow_dataset_from_disk(
+    preprocessing_utils.map_arrow_dataset_from_disk(
         join(data_dir, "pcba/processed"), is_dataset_dict=False
     )
 
