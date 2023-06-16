@@ -5,7 +5,7 @@ batch_size: 256
 
 # Data Settings
 data_args:
-  dataset_name: 'pcqm4mv2'  # dataset name
+  dataset_name: 'qm9'  # dataset name
   data_dir: 'data'  # directory where the dataset is located
   memory_mode: 'half'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
   train_split: 0.999  # proportion of data for training, the rest is for validation/testing unless predefined split exists.
@@ -26,15 +26,14 @@ trainer_args:
   max_grad_norm: 5.0
 
   warmup_steps: 20000  # number of steps for linear lr warmup
-  num_train_epochs: 100
   max_steps: 500000  # total number of training steps
 
   evaluation_strategy: 'steps'
   logging_strategy: 'steps'
   save_strategy: 'steps'
-  eval_steps: 100
-  logging_steps: 100
-  save_steps: 100
+  eval_steps: 50
+  logging_steps: 50
+  save_steps: 50
   do_eval: True  # whether to run evaluation during training
 
   save_total_limit: 10  # limit the total amount of checkpoints and deletes the older checkpoints
@@ -56,7 +55,7 @@ model_args:
   num_out_degree: 512 # Maximal number of out-degree for each node for the embedding in the beginning of the model.
   num_edge_dis: 128 # Dimensionality of the edge input embeddings #NOTE: not 100% sure what this does
   multi_hop_max_dist: 5 # Max distance for multi-hop edges (default: 5, though documentation states 20). Crops edge_input.
-  edge_type: "multihop" # What type of edge processing to use. Eiter "multihop" or something else (arbitrary)
+  edge_type: "multi_hop" # What type of edge processing to use. Eiter "multihop" or something else (arbitrary)
   activation_fn: "gelu" # Activation function used in the model
   layerdrop: 0.0
   apply_graphormer_init: False # Apply the graphormer additional initialization to the model. #NOTE: not 100% sure what this does
@@ -68,4 +67,5 @@ model_args:
   num_edge_properties: 3
   single_embedding_offset: 512
   mask_prob: 0.1
-  reconstruction_method: "embedding_prediction"
+  reconstruction_method: "index_prediction"
+  detach_target_embedding: True

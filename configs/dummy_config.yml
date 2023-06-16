@@ -52,7 +52,7 @@ model_args:
   num_out_degree: 512 # Maximal number of out-degree for each node for the embedding in the beginning of the model.
   num_edge_dis: 128 # Dimensionality of the edge input embeddings #NOTE: not 100% sure what this does
   multi_hop_max_dist: 5 # Max distance for multi-hop edges (default: 5, though documentation states 20). Crops edge_input.
-  edge_type: "multihop" # What type of edge processing to use. Eiter "multihop" or something else (arbitrary)
+  edge_type: "multi_hop" # What type of edge processing to use. Eiter "multihop" or something else (arbitrary)
   activation_fn: "gelu" # Activation function used in the model
   layerdrop: 0.0
   apply_graphormer_init: False # Apply the graphormer additional initialization to the model. #NOTE: not 100% sure what this does
