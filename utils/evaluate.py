@@ -2,6 +2,9 @@ from sklearn.metrics import roc_auc_score
 import numpy as np
 from functools import partial
 
+import tracemalloc
+from transformers import TrainingArguments, TrainerCallback, TrainerState, TrainerControl, TrainingArguments
+import wandb
 
 def multi_label_metrics(eval_pred: tuple, label_names):
     """
@@ -107,3 +110,26 @@ def prepare_evaluation_for_training(pretraining: bool, dataset_name: str, **kwar
         if dataset_name == "qm9":
             return None
         raise ValueError("Invalid dataset name for pretraining.")
+
+
+# Define your custom callback
+class MemoryProfilerCallback(TrainerCallback):
+    def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        # Check the current training step
+        print(state.global_step)
+        if state.global_step % 500 == 0:
+            # Start tracing memory allocations
+            tracemalloc.start()
+
+            # Get snapshot of current memory consumption
+            snapshot = tracemalloc.take_snapshot()
+
+            # Display the top 10 lines consuming the memory
+            top_stats = snapshot.statistics('lineno')
+
+            for i, stat in enumerate(top_stats[:30]):
+                wandb.log({f'memory_stat_{i}': str(stat)}, step=state.global_step)
+                print(stat)
+
+            # Stop tracing memory allocations
+            tracemalloc.stop()
