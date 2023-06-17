@@ -38,13 +38,16 @@ def convert_to_single_emb(x: np.ndarray, offset: int = 512):
     return x
 
 
-def preprocess_item(item, num_edge_features: int = 3):
+def preprocess_item(
+    item, num_edge_features: int = 3, single_embedding_offset: int = 512
+):
     """
     Preprocess a single item from a dataset.
 
     Args:
         item (Dict[str, Any]): A single item from a dataset.
         num_edge_features (int): The number of edge features to use. NOTE: This is mainly here for the speical case of graphs without any edges.
+        single_embedding_offset (int): The offset to use for the single embedding.
     """
 
     requires_backends(preprocess_item, ["cython"])
@@ -58,7 +61,7 @@ def preprocess_item(item, num_edge_features: int = 3):
     num_nodes = item["num_nodes"]
 
     # Create node features with an offset.
-    input_nodes = convert_to_single_emb(node_feature) + 1
+    input_nodes = convert_to_single_emb(node_feature, single_embedding_offset) + 1
 
     if num_edge_features != 1 and edge_attr.shape[-1] != num_edge_features:
         edge_attr = np.zeros([0, num_edge_features], dtype=np.int64)
@@ -67,7 +70,9 @@ def preprocess_item(item, num_edge_features: int = 3):
 
     # Create dense edge_attr matrix with an offset.
     attn_edge_type = np.zeros([num_nodes, num_nodes, num_edge_features], dtype=np.int64)
-    attn_edge_type[edge_index[0], edge_index[1]] = convert_to_single_emb(edge_attr) + 1
+    attn_edge_type[edge_index[0], edge_index[1]] = (
+        convert_to_single_emb(edge_attr, single_embedding_offset) + 1
+    )
 
     # Binary dense adjacency matrix (true if edge exists).
     adj = np.zeros([num_nodes, num_nodes], dtype=bool)
@@ -101,6 +106,7 @@ def preprocess_item(item, num_edge_features: int = 3):
     item["spatial_pos"] = (
         shortest_path_result.astype(np.int64) + 1
     )  # we shift all indices by one for padding
+    # TODO: Add option whether to use the in_degree/out_degree or not.
     item["in_degree"] = (
         np.sum(adj, axis=1).reshape(-1) + 1
     )  # we shift all indices by one for padding
@@ -117,7 +123,11 @@ def preprocess_item(item, num_edge_features: int = 3):
 
 class GraphormerDataCollator:
     def __init__(
-        self, spatial_pos_max=20, num_edge_features=3, on_the_fly_processing=True
+        self,
+        model_config,
+        spatial_pos_max: int = 20,
+        on_the_fly_processing: bool = True,
+        collator_mode: str = "classifcation",
     ):
         """
         Data collator for Graphormer.
@@ -131,21 +141,33 @@ class GraphormerDataCollator:
         on_the_fly_processing : bool
             If true, the preprocessing is done on the fly. If false, the data is expected to be processed already.
             If True, the TrainingArguments need to have the following parameters set: remove_unused_columns = False, num_edge_features = num_edge_features
+        collator_mode : str
+            The collator mode to use. Can be either "classification", "inference" or "pretraining".
+        mask_prob : float
+            The probability to mask a node. Only used in pretraining mode.
+        single_embedding_offset : int
+            The offset to use for the single embedding.
         """
 
         if not is_cython_available():
             raise ImportError("Graphormer preprocessing needs Cython (pyximport)")
 
         self.spatial_pos_max = spatial_pos_max
-        self.num_edge_features = num_edge_features
         self.on_the_fly_processing = on_the_fly_processing
+        self.collator_mode = collator_mode
+        self.num_edge_features = model_config.num_edge_properties
+        self.mask_prob = model_config.mask_prob
+        self.single_embedding_offset = model_config.single_embedding_offset
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
         if not isinstance(features[0], Mapping):
             features = [vars(f) for f in features]
 
         if self.on_the_fly_processing:
-            features = [preprocess_item(f, self.num_edge_features) for f in features]
+            features = [
+                preprocess_item(f, self.num_edge_features, self.single_embedding_offset)
+                for f in features
+            ]
 
         batch = {}
 
@@ -190,6 +212,7 @@ class GraphormerDataCollator:
             dtype=torch.long,
         )
 
+        n_node_list = []
         for ix, f in enumerate(features):
             for k in [
                 "attn_bias",
@@ -202,6 +225,7 @@ class GraphormerDataCollator:
                 f[k] = torch.tensor(f[k])
 
             n_nodes = f["input_nodes"].shape[0]
+            n_node_list.append(n_nodes)
             max_dist = f["input_edges"].shape[2]
 
             above_max = f["spatial_pos"] >= self.spatial_pos_max
@@ -225,9 +249,32 @@ class GraphormerDataCollator:
                 ]
 
         batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
+        batch["n_nodes"] = torch.tensor(n_node_list, dtype=torch.long)
 
         # Only add labels if they are in the features. For inference, or pretraining, the features won't have labels.
-        if "labels" in features[0].keys():
+        if self.collator_mode == "pretraining":
+            # NOTE: this is only for pretraining
+            batch["mask"] = torch.zeros(
+                batch_size, max_node_num, dtype=torch.long
+            ).bool()
+
+            for ix, f in enumerate(features):
+                n_nodes = f["input_nodes"].shape[0]
+                mask = torch.rand(n_nodes) < self.mask_prob
+                if not torch.any(mask):
+                    mask[torch.randint(0, n_nodes, (1,))] = True
+                batch["mask"][ix, :n_nodes] = mask
+
+            batch["labels"] = batch["input_nodes"][batch["mask"]]
+            for i in range(batch["labels"].shape[1]):
+                batch["labels"][:, i] = (
+                    batch["labels"][:, i] - i * self.single_embedding_offset
+                )
+
+            batch["input_nodes"][batch["mask"]] = self.single_embedding_offset - 1
+            batch["n_masked_nodes"] = torch.sum(batch["mask"], dim=-1)
+
+        if self.collator_mode == "classification":
             sample = features[0]["labels"]
 
             if not isinstance(sample, list):  # one task
@@ -240,7 +287,6 @@ class GraphormerDataCollator:
                 batch["labels"] = torch.from_numpy(
                     np.stack([i["labels"] for i in features])
                 )
-
         batch["return_loss"] = True
 
         return batch

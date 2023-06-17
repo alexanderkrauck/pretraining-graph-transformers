@@ -6,6 +6,8 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.nn as nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+from torch.nn.functional import cross_entropy
+
 
 from transformers.activations import ACT2FN
 from transformers.modeling_outputs import (
@@ -184,20 +186,12 @@ class GraphormerGraphNodeFeature(nn.Module):
         self.atom_encoder = nn.Embedding(
             config.num_atoms + 1, config.hidden_size, padding_idx=config.pad_token_id
         )
-        self.in_degree_encoder = nn.Embedding(
-            config.num_in_degree, config.hidden_size, padding_idx=config.pad_token_id
-        )
-        self.out_degree_encoder = nn.Embedding(
-            config.num_out_degree, config.hidden_size, padding_idx=config.pad_token_id
-        )
 
         self.graph_token = nn.Embedding(1, config.hidden_size)
 
-    def forward(self, input_nodes, in_degree, out_degree, add_graph_token=True):
+    def forward(self, input_nodes, add_graph_token=True):
         node_feature = (  # node feature + graph token
             self.atom_encoder(input_nodes).sum(dim=-2)  # [n_graph, n_node, n_hidden]
-            + self.in_degree_encoder(in_degree)
-            + self.out_degree_encoder(out_degree)
         )
         if add_graph_token:
             graph_token_feature = self.graph_token.weight.unsqueeze(0).repeat(
@@ -670,8 +664,6 @@ class GraphormerGraphEncoder(nn.Module):
         input_nodes,
         input_edges,
         attn_bias,
-        in_degree,
-        out_degree,
         spatial_pos,
         attn_edge_type,
         perturb=None,
@@ -695,7 +687,7 @@ class GraphormerGraphEncoder(nn.Module):
         if token_embeddings is not None:
             input_nodes = token_embeddings
         else:
-            input_nodes = self.graph_node_feature(input_nodes, in_degree, out_degree)
+            input_nodes = self.graph_node_feature(input_nodes)
 
         if perturb is not None:
             input_nodes[:, 1:, :] += perturb
@@ -857,8 +849,6 @@ class GraphormerModel(GraphormerPreTrainedModel):
         input_nodes,
         input_edges,
         attn_bias,
-        in_degree,
-        out_degree,
         spatial_pos,
         attn_edge_type,
         perturb=None,
@@ -874,8 +864,6 @@ class GraphormerModel(GraphormerPreTrainedModel):
             input_nodes,
             input_edges,
             attn_bias,
-            in_degree,
-            out_degree,
             spatial_pos,
             attn_edge_type,
             perturb=perturb,
@@ -941,8 +929,6 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
         input_nodes,
         input_edges,
         attn_bias,
-        in_degree,
-        out_degree,
         spatial_pos,
         attn_edge_type,
         labels: Optional[torch.LongTensor] = None,
@@ -957,8 +943,6 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
             input_nodes,
             input_edges,
             attn_bias,
-            in_degree,
-            out_degree,
             spatial_pos,
             attn_edge_type,
             return_dict=True,
@@ -1013,31 +997,27 @@ class GraphormerForPretraining(
         self.num_node_properties = config.num_node_properties
         self.num_edge_properties = config.num_edge_properties
         self.single_embedding_offset = config.single_embedding_offset
-        self.num_in_degree = config.num_in_degree
-        self.num_out_degree = config.num_out_degree
         self.reconstruction_method = config.reconstruction_method
+        self.detach_target_embedding = config.detach_target_embedding
 
         if (
             self.pretraining_method == "mask_prediction"
         ):  # TODO: consider using an own embedding for each property of atoms. (might be better)
             self.mask_prob = config.mask_prob
             if self.reconstruction_method == "index_prediction":
-                self.decoders = [
-                    nn.Linear(self.embedding_dim, self.single_embedding_offset)
-                    for _ in range(self.num_node_properties)
-                ]
-                self.num_in_degree_decoder = nn.Linear(
-                    self.embedding_dim, self.num_in_degree
+                self.decoders = nn.ModuleList(
+                    [
+                        nn.Linear(self.embedding_dim, self.single_embedding_offset)
+                        for _ in range(self.num_node_properties)
+                    ]
                 )
-                self.num_out_degree_decoder = nn.Linear(
-                    self.embedding_dim, self.num_out_degree
-                )
+
                 self.loss = CrossEntropyLoss()
 
             elif self.reconstruction_method == "embedding_prediction":
                 self.decoder = nn.Linear(self.embedding_dim, self.embedding_dim)
                 self.loss = MSELoss()
-                self.target_embedding = GraphormerGraphNodeFeature(config)
+                self.target_embedding = self.encoder.graph_encoder.graph_node_feature
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -1047,10 +1027,12 @@ class GraphormerForPretraining(
         input_nodes,
         input_edges,
         attn_bias,
-        in_degree,
-        out_degree,
         spatial_pos,
         attn_edge_type,
+        n_nodes,
+        labels,
+        n_masked_nodes,
+        mask,
         return_dict: Optional[bool] = None,
         **unused,
     ) -> Union[Tuple[torch.Tensor], SequenceClassifierOutput]:
@@ -1060,22 +1042,18 @@ class GraphormerForPretraining(
 
         if self.pretraining_method == "mask_prediction":
             # Mask the input
-            mask = torch.rand(input_nodes.shape[:2]) < self.mask_prob
-            masked_input_nodes = input_nodes.clone()
-            masked_input_nodes[mask] = self.single_embedding_offset
 
             encoder_outputs = self.encoder(
-                masked_input_nodes,
+                input_nodes,
                 input_edges,
                 attn_bias,
-                in_degree,
-                out_degree,
                 spatial_pos,
                 attn_edge_type,
                 return_dict=True,
             )
             outputs = encoder_outputs["last_hidden_state"]
             outputs = outputs[:, 1:]  # don't need the CLS token
+
             # NOTE: this currently removes the batch_dim. but it needs to happen because otherwise in the second dim the size might not be the same anymore.
             # However, the loss then is not averaged uniformly over the batch. This might be a problem.
             # Large graphs get a higher weight in the loss than small graphs.
@@ -1086,43 +1064,26 @@ class GraphormerForPretraining(
             if self.reconstruction_method == "index_prediction":  # TODO: test this
                 decoded_masked_outputs_logits = torch.stack(
                     [decoder(masked_outputs) for decoder in self.decoders], dim=1
-                )
-                decoded_masked_outputs_logits_in_degree = self.num_in_degree_decoder(
-                    masked_outputs
-                )
-                decoded_masked_outputs_logits_out_degree = self.num_out_degree_decoder(
-                    masked_outputs
-                )
+                ).transpose(1,2)
 
-                for i in range(
-                    self.num_node_properties
-                ):  # TODO: this is some dirty code, but it should work
-                    input_nodes[:, :, i] = (
-                        input_nodes[:, :, i] - i * self.single_embedding_offset
-                    )
-                loss = self.loss(decoded_masked_outputs_logits, input_nodes[mask])
-                loss_in_degree = self.loss(
-                    decoded_masked_outputs_logits_in_degree, in_degree[mask]
-                )
-                loss_out_degree = self.loss(
-                    decoded_masked_outputs_logits_out_degree, out_degree[mask]
-                )
-                loss = (
-                    loss * self.num_node_properties + loss_in_degree + loss_out_degree
-                ) / (self.num_node_properties + 2)
+                loss = cross_entropy(decoded_masked_outputs_logits, labels)
 
             elif self.reconstruction_method == "embedding_prediction":
                 decoded_masked_outputs_logits = self.decoder(masked_outputs)
+                
+                embedded_target = self.target_embedding(
+                        labels,
+                        add_graph_token=False,
+                    )
+                
+                if self.detach_target_embedding:
+                    embedded_target = embedded_target.detach()
+
                 loss = self.loss(
                     decoded_masked_outputs_logits,
-                    self.target_embedding(
-                        input_nodes[mask],
-                        in_degree[mask],
-                        out_degree[mask],
-                        add_graph_token=False,
-                    ),
-                )
-
+                    embedded_target,
+                ) #TODO: need regularization here, otherwise all embeddings will converge to a single value
+        # NOTE: possibly assert that outputs on second dim are the same size as input_nodes on second dim
         return {
             "loss": loss,
             "outputs": outputs,
@@ -1140,6 +1101,7 @@ class BetterGraphormerConfig(GraphormerConfig):
         pretraining_method: Optional[str] = None,
         mask_prob: Optional[float] = None,
         reconstruction_method: Optional[str] = None,
+        detach_target_embedding: Optional[bool] = False,
         **kwargs,
     ):
         """
@@ -1159,7 +1121,9 @@ class BetterGraphormerConfig(GraphormerConfig):
             The probability of masking a node property.
         reconstruction_method: str
             The method used for reconstructing the masked node properties. Currently only "index_prediction" and "embedding_prediction" are supported.
-
+        detach_target_embedding: bool
+            Whether to detach the target embedding from the gradient-computation graph. This forces the model to learn the embedding from the input. 
+            
         All other arguments are passed to the GraphormerConfig superclass.
         """
 
@@ -1172,3 +1136,4 @@ class BetterGraphormerConfig(GraphormerConfig):
         self.mask_prob = mask_prob
         self.reconstruction_method = reconstruction_method
         self.activation_dropout = activation_dropout
+        self.detach_target_embedding = detach_target_embedding

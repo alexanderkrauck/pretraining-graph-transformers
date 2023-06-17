@@ -63,7 +63,7 @@ def setup_logging(logpath, name, yaml_file):
 
     os.makedirs(logpath)
 
-    logger = logging.getLogger(name)
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
     file_handler = logging.FileHandler(os.path.join(logpath, "experiment.log"))

@@ -30,7 +30,11 @@ from utils import data as data_utils
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
 from utils import setup as setup_utils
 from utils import evaluate as evaluate_utils
-from utils.modeling_graphormer_improved import BetterGraphormerConfig, GraphormerForPretraining, GraphormerForGraphClassification #TODO: consider moving the file into a seperate folder
+from utils.modeling_graphormer_improved import (
+    BetterGraphormerConfig,
+    GraphormerForPretraining,
+    GraphormerForGraphClassification,
+)  # TODO: consider moving the file into a seperate folder
 
 
 def main(
@@ -81,9 +85,10 @@ def main(
     # TODO: maybe add logic for hyperparameter search
 
     device_count = torch.cuda.device_count()
-    logger.info(f"Using CUDA devices: {[torch.cuda.get_device_properties(device_index) for device_index in range(device_count)]}")
+    logger.info(
+        f"Using CUDA devices: {[torch.cuda.get_device_properties(device_index) for device_index in range(device_count)]}"
+    )
     setup_utils.setup_batch_size(config, device_count)
-    
 
     training_args = TrainingArguments(
         output_dir=os.path.join(logpath, "checkpoints"),
@@ -105,19 +110,25 @@ def main(
         else:
             n_classes = len(label_0)
         # Define your custom model here
+        model_config = BetterGraphormerConfig(
+            num_classes=n_classes, **config["model_args"]
+        )
         if from_pretrained is not None:
             model = GraphormerForGraphClassification.from_pretrained(
                 from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
             )
         else:
-            model_config = BetterGraphormerConfig(
-                num_classes=n_classes, **config["model_args"]
-            )
             model = GraphormerForGraphClassification(model_config)
 
         setup_utils.log_model_params(model, logger)
-        on_the_fly_processing = False if config["data_args"]["memory_mode"]=="full" else True
-        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3, on_the_fly_processing=on_the_fly_processing)
+        on_the_fly_processing = (
+            False if config["data_args"]["memory_mode"] == "full" else True
+        )
+        collator = graphormer_collator_utils.GraphormerDataCollator(
+            model_config = model_config,
+            on_the_fly_processing=on_the_fly_processing,
+            collator_mode="classification",
+        )
 
         trainer = Trainer(
             model=model,
@@ -150,14 +161,20 @@ def main(
 
         # Log the results
         wandb.log(test_results)
-    
+
     else:
         model_config = BetterGraphormerConfig(**config["model_args"])
         model = GraphormerForPretraining(model_config)
         setup_utils.log_model_params(model, logger)
-        
-        on_the_fly_processing = False if config["data_args"]["memory_mode"]=="full" else True
-        collator = graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3, on_the_fly_processing=on_the_fly_processing)
+
+        on_the_fly_processing = (
+            False if config["data_args"]["memory_mode"] == "full" else True
+        )
+        collator = graphormer_collator_utils.GraphormerDataCollator(
+            model_config = model_config,
+            on_the_fly_processing=on_the_fly_processing,
+            collator_mode="pretraining"
+        )
 
         trainer = Trainer(
             model=model,
@@ -170,10 +187,8 @@ def main(
 
         trainer.train()
 
-
-
     # TODO: Implement the pretraining logic
-    
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
