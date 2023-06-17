@@ -5,10 +5,10 @@ batch_size: 256
 
 # Data Settings
 data_args:
-  dataset_name: 'qm9'  # dataset name
-  data_dir: 'data'  # directory where the dataset is located
+  dataset_name: 'pcqm4mv2'  # dataset name
+  data_dir: '/system/user/publicwork/student/krauck/graph_data/'  # directory where the dataset is located
   memory_mode: 'half'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
-  train_split: 0.999  # proportion of data for training, the rest is for validation/testing unless predefined split exists.
+  train_split: 0.998  # proportion of data for training, the rest is for validation/testing unless predefined split exists.
 
 # Trainer Settings, see https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments
 trainer_args: 
@@ -25,15 +25,16 @@ trainer_args:
   adam_epsilon: 1.0e-8  # epsilon for Adam optimizer
   max_grad_norm: 5.0
 
-  warmup_steps: 20000  # number of steps for linear lr warmup
+  warmup_steps: 40000  # number of steps for linear lr warmup
+  num_train_epochs: 100
   max_steps: 500000  # total number of training steps
 
   evaluation_strategy: 'steps'
   logging_strategy: 'steps'
   save_strategy: 'steps'
-  eval_steps: 50
-  logging_steps: 50
-  save_steps: 50
+  eval_steps: 250
+  logging_steps: 250
+  save_steps: 500
   do_eval: True  # whether to run evaluation during training
 
   save_total_limit: 10  # limit the total amount of checkpoints and deletes the older checkpoints
@@ -63,8 +64,6 @@ model_args:
   encoder_normalize_before: True # Apply the layer norm before each encoder block.
   pre_layernorm: False # Apply layernorm before self attention and the feed forward network. Without this, post layernorm will be used.
 
-
-
   pretraining_method: "mask_prediction"
   num_node_properties: 9
   num_edge_properties: 3
@@ -72,3 +71,4 @@ model_args:
   mask_prob: 0.1
   reconstruction_method: "index_prediction"
   detach_target_embedding: True
+
