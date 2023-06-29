@@ -213,57 +213,56 @@ class GraphormerDataCollator:
         )
 
         n_node_list = []
-        for ix, f in enumerate(features):
-            for k in [
-                "attn_bias",
-                "attn_edge_type",
-                "spatial_pos",
-                "in_degree",
-                "input_nodes",
-                "input_edges",
-            ]:
-                f[k] = torch.tensor(f[k])
 
-            n_nodes = f["input_nodes"].shape[0]
-            n_node_list.append(n_nodes)
-            max_dist = f["input_edges"].shape[2]
-
-            above_max = f["spatial_pos"] >= self.spatial_pos_max
-            if torch.sum(above_max) > 0:
-                # so all that are above the max are set to -inf #TODO: f["attn_bias"] is completely useless. you can just use the spatial pos
-                f["attn_bias"][1:, 1:][above_max] = float("-inf")
-            # TODO: this is all square matrices so we could just use one dim
-
-            batch["attn_bias"][ix, : n_nodes + 1, : n_nodes + 1] = f["attn_bias"]
-            batch["attn_edge_type"][ix, :n_nodes, :n_nodes] = f["attn_edge_type"]
-            batch["spatial_pos"][ix, :n_nodes, :n_nodes] = f["spatial_pos"]
-            batch["in_degree"][ix, :n_nodes] = f["in_degree"]
-            batch["input_nodes"][ix, :n_nodes] = f["input_nodes"]
-            # TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
-            if (
-                batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist].shape
-                == f["input_edges"].shape
-            ):
-                batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist] = f[
-                    "input_edges"
-                ]
-
-        batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
-        batch["n_nodes"] = torch.tensor(n_node_list, dtype=torch.long)
-
-        # Only add labels if they are in the features. For inference, or pretraining, the features won't have labels.
         if self.collator_mode == "pretraining":
             # NOTE: this is only for pretraining
             batch["mask"] = torch.zeros(
                 batch_size, max_node_num, dtype=torch.long
             ).bool()
 
-            for ix, f in enumerate(features):
-                n_nodes = f["input_nodes"].shape[0]
+        for ix, f in enumerate(features):
+
+            f_attn_bias = torch.from_numpy(f["attn_bias"])
+            f_attn_edge_type = torch.from_numpy(f["attn_edge_type"])
+            f_spatial_pos = torch.from_numpy(f["spatial_pos"])
+            f_in_degree = torch.from_numpy(f["in_degree"])
+            f_input_nodes = torch.from_numpy(f["input_nodes"])
+            f_input_edges = torch.from_numpy(f["input_edges"])
+
+
+            n_nodes = f_input_nodes.shape[0]
+            n_node_list.append(n_nodes)
+            max_dist = f_input_edges.shape[2]
+
+            above_max = f_spatial_pos >= self.spatial_pos_max
+            if torch.sum(above_max) > 0:
+                # so all that are above the max are set to -inf #TODO: f["attn_bias"] is completely useless. you can just use the spatial pos
+                f_attn_bias[1:, 1:][above_max] = float("-inf")
+            # TODO: this is all square matrices so we could just use one dim
+
+            batch["attn_bias"][ix, : n_nodes + 1, : n_nodes + 1] = f_attn_bias
+            batch["attn_edge_type"][ix, :n_nodes, :n_nodes] = f_attn_edge_type
+            batch["spatial_pos"][ix, :n_nodes, :n_nodes] = f_spatial_pos
+            batch["in_degree"][ix, :n_nodes] = f_in_degree
+            batch["input_nodes"][ix, :n_nodes] = f_input_nodes
+            # TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
+            if (
+                batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist].shape
+                == f_input_edges.shape
+            ):
+                batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist] = f_input_edges
+
+            if self.collator_mode == "pretraining":
                 mask = torch.rand(n_nodes) < self.mask_prob
                 if not torch.any(mask):
                     mask[torch.randint(0, n_nodes, (1,))] = True
                 batch["mask"][ix, :n_nodes] = mask
+
+        batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
+        batch["n_nodes"] = torch.tensor(n_node_list, dtype=torch.long)
+
+        # Only add labels if they are in the features. For inference, or pretraining, the features won't have labels.
+        if self.collator_mode == "pretraining":
 
             batch["labels"] = batch["input_nodes"][batch["mask"]]
             for i in range(batch["labels"].shape[1]):
@@ -287,6 +286,8 @@ class GraphormerDataCollator:
                 batch["labels"] = torch.from_numpy(
                     np.stack([i["labels"] for i in features])
                 )
-        batch["return_loss"] = True
+
+        if not self.collator_mode == "inference":
+            batch["return_loss"] = True
 
         return batch

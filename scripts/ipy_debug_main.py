@@ -10,29 +10,33 @@ from torch.utils.data import DataLoader
 #%%
 name = "*time*_test_pretrain"
 logdir = "runs"
-yaml_file="configs/dummy_pretraining_config.yml"
+yaml_file="configs/fix_leak.yml"
 from_pretrained = None
 
 # %%
-main(name = name, logdir = logdir, yaml_file=yaml_file)
+trainer = main(name = name, logdir = logdir, yaml_file=yaml_file, return_trainer_instead=True)
 #%%
 dl = trainer.get_train_dataloader()
 #%%
-def test_dl_speed(data_loader, times= 10):
+def test_dl_speed(data_loader, times= -1, append_batches = False):
     i = 0
     _start = time.time()
     batches = []
-    for batch in data_loader:
+    for batch in tqdm(data_loader):
         _end = time.time()
-        batches.append(batch)
-        print(f"Time taken for batch {i}: {_end-_start}")
+        if append_batches:
+            batches.append(batch)
+        #print(f"Time taken for batch {i}: {_end-_start}")
 
         _start = time.time()
 
         i+=1
         if i==times:
             break
+    return batches
 
+#%%
+test_dl_speed(dl)
 #%%
 dataset = trainer.train_dataset
 dataset = dataset.shuffle()

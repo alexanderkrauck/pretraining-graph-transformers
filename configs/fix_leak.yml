@@ -5,7 +5,7 @@ batch_size: 256
 
 # Data Settings
 data_args:
-  dataset_name: 'pcqm4mv2'  # dataset name
+  dataset_name: 'pcba'  # dataset name
   data_dir: '/system/user/publicwork/student/krauck/graph_data/'  # directory where the dataset is located
   memory_mode: 'half'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
   train_split: 0.998  # proportion of data for training, the rest is for validation/testing unless predefined split exists.
@@ -13,7 +13,7 @@ data_args:
 # Trainer Settings, see https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments
 trainer_args: 
   gradient_accumulation_steps: 2
-  dataloader_num_workers: 4 # number of subprocesses for data loading
+  dataloader_num_workers: 0 # number of subprocesses for data loading
   remove_unused_columns: False 
 
   optim: "adamw_torch" 

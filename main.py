@@ -42,6 +42,7 @@ def main(
     logdir: str = "runs",
     yaml_file: str = "configs/dummy_config.yml",
     from_pretrained: str = None,
+    return_trainer_instead = False
 ):
     """
     Entry point for training and evaluating the model.
@@ -53,6 +54,7 @@ def main(
         logdir (str): Directories where logs are stored.
         yaml_file (str): The yaml file with the config.
         from_pretrained (str): Path to a pretrained model.
+        return_trainer_instead (bool): If true then the trainer will be returned and not "train" exectued. For debug.
     """
 
     with open(yaml_file, "r") as file:
@@ -139,6 +141,8 @@ def main(
             compute_metrics=evaluation_func,
         )
 
+        if return_trainer_instead:
+            return trainer
         trainer.train()
 
         # Do a test run #TODO: maybe put it in a seperate function/file
@@ -185,6 +189,10 @@ def main(
             compute_metrics=evaluation_func,
         )
 
+
+        if return_trainer_instead:
+            return trainer
+        
         trainer.train()
 
     # TODO: Implement the pretraining logic

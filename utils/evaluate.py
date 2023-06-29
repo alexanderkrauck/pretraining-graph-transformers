@@ -116,7 +116,6 @@ def prepare_evaluation_for_training(pretraining: bool, dataset_name: str, **kwar
 class MemoryProfilerCallback(TrainerCallback):
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # Check the current training step
-        print(state.global_step)
         if state.global_step % 500 == 0:
             # Start tracing memory allocations
             tracemalloc.start()

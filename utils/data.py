@@ -17,6 +17,8 @@ from tqdm import tqdm
 
 from typing import Optional, List, Union
 
+import copy
+
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
 import random
 
@@ -152,7 +154,7 @@ class PreloadedDataset(TorchDataset):
         }
 
     def __getitem__(self, idx):
-        return self.rows[idx]
+        return copy.deepcopy(self.rows[idx])
 
     def __len__(self):
         return len(self.rows)
