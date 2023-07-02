@@ -2,3 +2,5 @@ eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/github_key
 
 CUDA_VISIBLE_DEVICES=2,3 python main.py -n *time*_pretrain_embedding_prediction -l /system/user/publicwork/student/krauck/runs -y configs/pcqm4mv2_pretraining_run.yml
+
+scp -r student03:/system/user/publicwork/student/krauck/runs/18-06-2023_13-33-03_pretrain_index_pred_brooo/checkpoints/checkpoint-364000 ~/
