@@ -42,7 +42,7 @@ def main(
     logdir: str = "runs",
     yaml_file: str = "configs/dummy_config.yml",
     from_pretrained: str = None,
-    return_trainer_instead = False
+    return_trainer_instead=False,
 ):
     """
     Entry point for training and evaluating the model.
@@ -60,12 +60,46 @@ def main(
     with open(yaml_file, "r") as file:
         config = yaml.safe_load(file)
 
+    seeds = config["seed"]
+    if isinstance(seeds, int):
+        return main_run(
+            config,
+            name,
+            logdir,
+            yaml_file,
+            from_pretrained,
+            return_trainer_instead,
+        )
+
+    for seed in seeds:
+        seed_config = config.copy()
+        seed_config["seed"] = seed
+        main_run(
+            seed_config,
+            name,
+            logdir,
+            yaml_file,
+            from_pretrained,
+            return_trainer_instead,
+        )            
+
+
+def main_run(
+    config: dict,
+    name: str = None,
+    logdir: str = "runs",
+    yaml_file: str = "configs/dummy_config.yml",
+    from_pretrained: str = None,
+    return_trainer_instead=False,
+):
+    
+    seed = config["seed"]
+
     name = setup_utils.get_experiment_name(config, name)
     logpath = os.path.join(logdir, name)
     logger = setup_utils.setup_logging(logpath, name, yaml_file)
     setup_utils.setup_wandb(name, logdir, config)
 
-    seed = config["seed"]  # TODO: maybe allow multiple seeds with a loop
     logger.info(f"Set the random seed to : {seed}")
     random.seed(seed)
     np.random.seed(seed)
@@ -127,7 +161,7 @@ def main(
             False if config["data_args"]["memory_mode"] == "full" else True
         )
         collator = graphormer_collator_utils.GraphormerDataCollator(
-            model_config = model_config,
+            model_config=model_config,
             on_the_fly_processing=on_the_fly_processing,
             collator_mode="classification",
         )
@@ -175,9 +209,9 @@ def main(
             False if config["data_args"]["memory_mode"] == "full" else True
         )
         collator = graphormer_collator_utils.GraphormerDataCollator(
-            model_config = model_config,
+            model_config=model_config,
             on_the_fly_processing=on_the_fly_processing,
-            collator_mode="pretraining"
+            collator_mode="pretraining",
         )
 
         trainer = Trainer(
@@ -189,13 +223,12 @@ def main(
             compute_metrics=evaluation_func,
         )
 
-
         if return_trainer_instead:
             return trainer
-        
+
         trainer.train()
 
-    # TODO: Implement the pretraining logic
+    wandb.finish()
 
 
 if __name__ == "__main__":

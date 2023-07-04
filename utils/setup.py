@@ -16,8 +16,9 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-import shutil
 import wandb
+import yaml
+
 
 def get_experiment_name(config, name=None):
     """
@@ -40,10 +41,11 @@ def get_experiment_name(config, name=None):
         )
 
     name = name.replace("*time*", datetime.now().strftime("%d-%m-%Y_%H-%M-%S"))
+    name = name.replace("*seed*", str(config["seed"]))
     
     return name
 
-def setup_logging(logpath, name, yaml_file):
+def setup_logging(logpath, name, config):
     """
     Set up a logger for experiment.
 
@@ -63,7 +65,7 @@ def setup_logging(logpath, name, yaml_file):
 
     os.makedirs(logpath)
 
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
     file_handler = logging.FileHandler(os.path.join(logpath, "experiment.log"))
@@ -89,11 +91,13 @@ def setup_logging(logpath, name, yaml_file):
         f"https://github.com/alexanderkrauck/pretrained-graph-transformer/tree/{current_commit}"
     )
 
-    logger.info(f"Used Config file: {yaml_file}.")
+    logger.info(f"Used Config: \n\n{config}\n.")
+
+    with open( os.path.join(logpath, "config.yml"), "w") as file:
+        yaml.dump(config, file)
 
     logger.info(f'Copied the used config to : {os.path.join(logpath, "config.yml")}')
 
-    shutil.copy(yaml_file, os.path.join(logpath, "config.yml"))
 
     return logger
 
