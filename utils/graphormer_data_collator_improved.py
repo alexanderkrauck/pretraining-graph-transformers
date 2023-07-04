@@ -107,10 +107,7 @@ def preprocess_item(
         shortest_path_result.astype(np.int64) + 1
     )  # we shift all indices by one for padding
     # TODO: Add option whether to use the in_degree/out_degree or not.
-    item["in_degree"] = (
-        np.sum(adj, axis=1).reshape(-1) + 1
-    )  # we shift all indices by one for padding
-    item["out_degree"] = item["in_degree"]  # for undirected graph
+
     item["input_edges"] = input_edges + 1  # we shift all indices by one for padding
 
     # NOTE: Graphormer expects the target to be called "labels".
@@ -197,7 +194,6 @@ class GraphormerDataCollator:
         batch["spatial_pos"] = torch.zeros(
             batch_size, max_node_num, max_node_num, dtype=torch.long
         )
-        batch["in_degree"] = torch.zeros(batch_size, max_node_num, dtype=torch.long)
         # Create tensor for node feature data
         batch["input_nodes"] = torch.zeros(
             batch_size, max_node_num, node_feat_size, dtype=torch.long
@@ -225,7 +221,6 @@ class GraphormerDataCollator:
             f_attn_bias = torch.from_numpy(f["attn_bias"])
             f_attn_edge_type = torch.from_numpy(f["attn_edge_type"])
             f_spatial_pos = torch.from_numpy(f["spatial_pos"])
-            f_in_degree = torch.from_numpy(f["in_degree"])
             f_input_nodes = torch.from_numpy(f["input_nodes"])
             f_input_edges = torch.from_numpy(f["input_edges"])
 
@@ -243,7 +238,6 @@ class GraphormerDataCollator:
             batch["attn_bias"][ix, : n_nodes + 1, : n_nodes + 1] = f_attn_bias
             batch["attn_edge_type"][ix, :n_nodes, :n_nodes] = f_attn_edge_type
             batch["spatial_pos"][ix, :n_nodes, :n_nodes] = f_spatial_pos
-            batch["in_degree"][ix, :n_nodes] = f_in_degree
             batch["input_nodes"][ix, :n_nodes] = f_input_nodes
             # TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
             if (
@@ -258,7 +252,6 @@ class GraphormerDataCollator:
                     mask[torch.randint(0, n_nodes, (1,))] = True
                 batch["mask"][ix, :n_nodes] = mask
 
-        batch["out_degree"] = batch["in_degree"]  # NOTE: for undirected graph only
         batch["n_nodes"] = torch.tensor(n_node_list, dtype=torch.long)
 
         # Only add labels if they are in the features. For inference, or pretraining, the features won't have labels.
