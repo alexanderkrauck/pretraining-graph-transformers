@@ -269,7 +269,7 @@ class GraphormerDataCollator:
         if self.collator_mode == "classification":
             sample = features[0]["labels"]
 
-            if not isinstance(sample, list):  # one task
+            if not isinstance(sample, (list, np.ndarray)):  # one task
                 batch["labels"] = torch.tensor([i["labels"] for i in features])
             elif len(sample) == 1:
                 batch["labels"] = torch.from_numpy(

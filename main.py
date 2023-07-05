@@ -141,7 +141,7 @@ def main_run(
             label_0 = dataset["train"][0]["labels"]
         else:
             label_0 = dataset["train"][0]["target"]
-        if not isinstance(label_0, list):
+        if not isinstance(label_0, (list, np.ndarray)):
             n_classes = 1
         else:
             n_classes = len(label_0)
