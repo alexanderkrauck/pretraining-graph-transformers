@@ -42,8 +42,9 @@ def get_experiment_name(config, name=None):
 
     name = name.replace("*time*", datetime.now().strftime("%d-%m-%Y_%H-%M-%S"))
     name = name.replace("*seed*", str(config["seed"]))
-    
+
     return name
+
 
 def setup_logging(logpath, name, config):
     """
@@ -54,14 +55,16 @@ def setup_logging(logpath, name, config):
         logdir (str): Directory where logs are stored.
         name (str, optional): Name of the experiment.
         yaml_file (str): Path to the yaml file with the config.
-    
+
     Returns:
     ----
         logger: Logger object.
     """
 
     if os.path.isdir(logpath):
-        raise ValueError(f"Log directory {logpath} already exists. Consider adding *time* to the name so that the experiment is unique.")
+        raise ValueError(
+            f"Log directory {logpath} already exists. Consider adding *time* to the name so that the experiment is unique."
+        )
 
     os.makedirs(logpath)
 
@@ -93,13 +96,13 @@ def setup_logging(logpath, name, config):
 
     logger.info(f"Used Config: \n\n{config}\n.")
 
-    with open( os.path.join(logpath, "config.yml"), "w") as file:
+    with open(os.path.join(logpath, "config.yml"), "w") as file:
         yaml.dump(config, file)
 
     logger.info(f'Copied the used config to : {os.path.join(logpath, "config.yml")}')
 
-
     return logger
+
 
 def get_commit(repo_path: str = "."):
     """
@@ -115,34 +118,30 @@ def get_commit(repo_path: str = "."):
     commit = head_ref.read_text().replace("\n", "")
     return commit
 
-def setup_wandb(name:str, logdir: str, config: dict):
+
+def setup_wandb(name: str, logdir: str, config: dict):
     """
     Setup the wandb logger.
     """
-    # set the wandb project where this run will be logged
-    os.environ["WANDB_PROJECT"]="pretrained_graph_transformer"
-
     # save your trained model checkpoint to wandb
-    os.environ["WANDB_LOG_MODEL"]="true"
+    os.environ["WANDB_LOG_MODEL"] = "true"
 
     # turn off watch to log faster
-    os.environ["WANDB_WATCH"]="false"
+    os.environ["WANDB_WATCH"] = "false"
 
-    os.environ["WANDB_NAME"] = name
+    wandb.init(dir=logdir, name=name, project="pretrained_graph_transformer")
 
-    os.environ["WANDB_DIR"] = logdir#os.path.join(logdir, "wandb")
-
-    wandb.init()
     copied_dict = config.copy()
     del copied_dict["trainer_args"]
     del copied_dict["model_args"]
 
     wandb.config.update(copied_dict)
 
+
 def setup_batch_size(config: dict, n_devices: int):
     """
     Setup the batch size for the experiment. The batch size is divided by the number of devices and the gradient accumulation steps.
-    
+
     Args:
     ----
         config (dict): Configuration dictionary.
@@ -158,15 +157,16 @@ def setup_batch_size(config: dict, n_devices: int):
     config["trainer_args"]["per_device_train_batch_size"] = int(per_device_batch_size)
     config["trainer_args"]["per_device_eval_batch_size"] = int(per_device_batch_size)
 
+
 def log_model_params(model, logger):
     """
     Log the number of parameters of the model.
-    
+
     Args:
     ----
         model: The model to log the parameters of.
         logger: The logger to log the parameters to."""
 
     paramsum = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
+
     logger.info(f"Total number of trainable parameters: {paramsum}.")
