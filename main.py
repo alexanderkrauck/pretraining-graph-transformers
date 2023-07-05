@@ -111,7 +111,7 @@ def main_run(
     logger.info(f"For this run pretraining is : {pretraining}")
 
     dataset = data_utils.prepare_dataset_for_training(
-        pretraining, seed, **config["data_args"]
+        pretraining, seed, **config["data_args"], **config["model_args"]
     )
     evaluation_func = evaluate_utils.prepare_evaluation_for_training(
         pretraining, **config["data_args"]

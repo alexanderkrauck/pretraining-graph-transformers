@@ -39,7 +39,7 @@ def convert_to_single_emb(x: np.ndarray, offset: int = 512):
 
 
 def preprocess_item(
-    item, num_edge_features: int = 3, single_embedding_offset: int = 512
+    item, num_edge_features: int = 3, single_embedding_offset: int = 512, **kwargs
 ):
     """
     Preprocess a single item from a dataset.

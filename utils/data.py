@@ -44,45 +44,43 @@ def prepare_dataset_for_training(
         train_split (float): The percentage of the dataset to use for training. Only used for finetuning.
     """
 
-    path_extension = "_processed" if memory_mode == "full" else ""
-
     if not pretraining:
         if dataset_name == "tox21_original":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "tox21_original/processed/arrow" + path_extension),
+                join(data_dir, "tox21_original/processed/arrow"),
                 keep_in_memory=True,
             )
 
         if dataset_name == "tox21":
             dataset = load_from_disk(
-                join(data_dir, "tox21/processed/arrow" + path_extension),
+                join(data_dir, "tox21/processed/arrow"),
                 keep_in_memory=True,
             )
 
         if dataset_name == "ZINC":
             dataset = DatasetDict.load_from_disk(
-                join(data_dir, "ZINC/processed/arrow" + path_extension),
+                join(data_dir, "ZINC/processed/arrow"),
                 keep_in_memory=True,
             )
 
         if dataset_name == "qm9":
             dataset = load_from_disk(
-                join(data_dir, "qm9/processed/arrow" + path_extension)
+                join(data_dir, "qm9/processed/arrow")
             )
 
     else:
         if dataset_name == "pcqm4mv2":
             dataset = load_from_disk(
-                join(data_dir, "pcqm4mv2/processed/arrow" + path_extension),
+                join(data_dir, "pcqm4mv2/processed/arrow"),
                 keep_in_memory=False,
             )
         if dataset_name == "pcba":
             dataset = load_from_disk(
-                join(data_dir, "pcba/processed/arrow" + path_extension)
+                join(data_dir, "pcba/processed/arrow")
             )
         if dataset_name == "qm9":
             dataset = load_from_disk(
-                join(data_dir, "qm9/processed/arrow" + path_extension)
+                join(data_dir, "qm9/processed/arrow")
             )
 
     if dataset is None:
@@ -90,7 +88,7 @@ def prepare_dataset_for_training(
 
     if memory_mode in ["full", "half"]:
         dataset = to_preloaded_dataset(
-            dataset, format_numpy=True if memory_mode == "full" else False
+            dataset, preprocess=True if memory_mode == "full" else False, **kwargs
         )
 
     if isinstance(dataset, Dataset) or isinstance(dataset, PreloadedDataset):
@@ -107,25 +105,27 @@ class PreloadedDataset(TorchDataset):
     def __init__(
         self,
         dataset: Union[Dataset, list],
-        format_numpy: bool = True,
         column_names: Optional[list] = None,
+        preprocess: bool = True,
+        **kwargs
     ):
         """
         Args
         ----
             dataset (Dataset): The dataset to preload.
-            format_numpy (bool): Whether to convert the dataset to numpy or not.
+            preprocess (bool): Whether to preprocess the dataset already.
         """
         if isinstance(dataset, list):
             self.rows = dataset
             self.column_names = column_names
         else:
-            if format_numpy:
-                dataset.set_format(type="numpy", columns=list(dataset.column_names))
             self.column_names = dataset.column_names
             self.rows = []
             for i in tqdm(range(len(dataset))):
-                self.rows.append(dataset[i])
+                row = dataset[i]
+                if preprocess:
+                    row = graphormer_collator_utils.preprocess_item(row, **kwargs)
+                self.rows.append(row)
             del dataset
 
     def train_test_split(self, test_size=0.8, seed=None, shuffle=True):
@@ -190,7 +190,7 @@ def split_dataset(
 
 
 def to_preloaded_dataset(
-    dataset: Union[Dataset, DatasetDict], format_numpy: bool = True
+    dataset: Union[Dataset, DatasetDict], preprocess: bool = True, **kwargs
 ):
     """
     Convert a dataset to a preloaded dataset.
@@ -198,9 +198,9 @@ def to_preloaded_dataset(
     Args
     ----
         dataset (Union[Dataset, DatasetDict]): The dataset to convert.
-        format_numpy (bool): Whether to convert the dataset to numpy or not.
+        preprocess (bool): Whether to preprocess the dataset already.
     """
     if isinstance(dataset, DatasetDict):
-        return {k: to_preloaded_dataset(v, format_numpy) for k, v in dataset.items()}
+        return {k: to_preloaded_dataset(v, preprocess, **kwargs) for k, v in dataset.items()}
 
-    return PreloadedDataset(dataset, format_numpy)
+    return PreloadedDataset(dataset, preprocess, **kwargs)
