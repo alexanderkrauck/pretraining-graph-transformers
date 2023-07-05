@@ -1,0 +1,62 @@
+# General Settings
+pretraining: False
+seed: [51,52,53,54,55,56,57,58]
+batch_size: 256
+
+# Data Settings
+data_args:
+  dataset_name: 'ZINC'  # dataset name or path to dataset
+  data_dir: '/system/user/publicwork/student/krauck/graph_data/'  # directory to save the datasets
+  memory_mode: 'full'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
+
+
+# Trainer Settings, see https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments
+trainer_args: 
+  gradient_accumulation_steps: 1
+  dataloader_num_workers: 8 # number of subprocesses for data loading
+  remove_unused_columns: True 
+
+  optim: "adamw_torch" 
+  learning_rate: 2.0e-4  # initial learning rate for optimizer
+  lr_scheduler_type: "linear" # learning rate scheduler type
+  weight_decay: 0.01  # weight decay if applicable
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8  # epsilon for Adam optimizer
+  max_grad_norm: 5.0
+
+  warmup_steps: 10000  # number of steps for linear lr warmup
+  num_train_epochs: 10000
+  max_steps: 200000
+
+  evaluation_strategy: 'epoch'
+  logging_strategy: 'epoch'
+  save_strategy: 'epoch'
+  do_eval: True  # whether to run evaluation during training
+
+  save_total_limit: 4  # limit the total amount of checkpoints and deletes the older checkpoints
+  load_best_model_at_end: True
+  metric_for_best_model: "loss"
+  greater_is_better: False
+
+# Model Settings, see https://huggingface.co/docs/transformers/model_doc/graphormer#transformers.GraphormerConfig
+model_args:
+  embedding_dim: 80 # The dimensionality of the attention embeddings.
+  ffn_embedding_dim: 80 # The dimensionality of the embedding between the 2 FFN layers in each transformer block.
+  num_attention_heads: 8  # number of attention heads for transformer model
+  num_hidden_layers: 12  # number of hidden layers in the transformer encoder
+  activation_dropout: 0.0
+  attention_dropout: 0.1  # The dropout probability for the attention weights.
+  dropout: 0.1 # The dropout probability for all fully connected layers in the embeddings, encoder, and pooler.
+  num_atoms: 4608 # = 512 * 9
+  num_edges: 1536 # = 512 * 3
+  num_in_degree: 512 # Maximal number of in-degree for each node for the embedding in the beginning of the model.
+  num_out_degree: 512 # Maximal number of out-degree for each node for the embedding in the beginning of the model.
+  num_edge_dis: 128 # Dimensionality of the edge input embeddings #NOTE: not 100% sure what this does
+  multi_hop_max_dist: 5 # Max distance for multi-hop edges (default: 5, though documentation states 20). Crops edge_input.
+  edge_type: "multi_hop" # What type of edge processing to use. Eiter "multihop" or something else (arbitrary)
+  activation_fn: "gelu" # Activation function used in the model
+  layerdrop: 0.0
+  apply_graphormer_init: True # Apply the graphormer additional initialization to the model. #NOTE: not 100% sure what this does
+  encoder_normalize_before: True # Apply the layer norm before each encoder block.
+  pre_layernorm: False # Apply layernorm before self attention and the feed forward network. Without this, post layernorm will be used.
