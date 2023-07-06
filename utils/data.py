@@ -96,6 +96,12 @@ def prepare_dataset_for_training(
 
     return dataset
 
+def get_dataset_task(dataset_name: str, **kwargs):
+    if dataset_name in ["pcba", "tox21", "tox21_original"]:
+        return "classification"
+    if dataset_name in ["qm9", "ZINC"]:
+        return "regression"
+
 
 class PreloadedDataset(TorchDataset):
     """

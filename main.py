@@ -145,6 +145,8 @@ def main_run(
             n_classes = 1
         else:
             n_classes = len(label_0)
+
+        config["model_args"]["classification_task"] = data_utils.get_dataset_task(**config["data_args"])
         # Define your custom model here
         model_config = BetterGraphormerConfig(
             num_classes=n_classes, **config["model_args"]

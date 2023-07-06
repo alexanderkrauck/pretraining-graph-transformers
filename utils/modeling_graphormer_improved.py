@@ -915,6 +915,8 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
         self.encoder = GraphormerModel(config)
         self.embedding_dim = config.embedding_dim
         self.num_classes = config.num_classes
+        self.equal_nan_loss_weighting = config.equal_nan_loss_weighting
+        self.classification_task = config.classification_task
         self.classifier_head = GraphormerDecoderHead(
             self.embedding_dim, self.num_classes
         )
@@ -958,22 +960,33 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
         if labels is not None:
             mask = ~torch.isnan(labels)
 
-            if self.num_classes == 1:  # regression
-                loss_fct = MSELoss()
-                loss = loss_fct(logits[mask].squeeze(), labels[mask].squeeze().float())
+            if self.classification_task == "regression":  # regression
+                if self.equal_nan_loss_weighting and not (len(labels.shape) == 1 or labels.shape[-1] == 1):
+                    loss_fct = MSELoss(reduction="none")
+                    loss = loss_fct(logits[mask].squeeze(), labels[mask].squeeze().float())
+                    n_not_nan = mask.squeeze().sum(1)
+                    loss_weights = (torch.ones_like(input) / n_not_nan.unsqueeze(1))[mask]
+                    loss = (loss * loss_weights).sum() / logits.shape[0] #better scaling for lr
+                else:
+                    loss_fct = MSELoss()
+                    loss = loss_fct(logits[mask].squeeze(), labels[mask].squeeze().float())
             elif (
-                self.num_classes > 1 and len(labels.shape) == 1
+                self.classification_task == "classification" and (len(labels.shape) == 1 or labels.shape[-1] == 1)
             ):  # One task classification
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(
                     logits[mask].view(-1, self.num_classes), labels[mask].view(-1)
                 )
-            else:  # Binary multi-task classification #TODO: consider making multiple options for this
-                loss_fct = BCEWithLogitsLoss(reduction="none")
-                loss = loss_fct(logits[mask], labels[mask])
-                n_not_nan = mask.sum(1)
-                loss_weights = (torch.ones_like(input) / n_not_nan.unsqueeze(1))[mask]
-                loss = (loss * loss_weights).sum() / logits.shape[0] #better scaling for lr
+            else:  # Binary multi-task classification
+                if self.equal_nan_loss_weighting:
+                    loss_fct = BCEWithLogitsLoss(reduction="none")
+                    loss = loss_fct(logits[mask], labels[mask])
+                    n_not_nan = mask.sum(1)
+                    loss_weights = (torch.ones_like(input) / n_not_nan.unsqueeze(1))[mask]
+                    loss = (loss * loss_weights).sum() / logits.shape[0] #better scaling for lr
+                else:
+                    loss_fct = BCEWithLogitsLoss()
+                    loss = loss_fct(logits[mask], labels[mask])
 
         if not return_dict:
             return tuple(x for x in [loss, logits, hidden_states] if x is not None)
@@ -1104,6 +1117,8 @@ class BetterGraphormerConfig(GraphormerConfig):
         mask_prob: Optional[float] = None,
         reconstruction_method: Optional[str] = None,
         detach_target_embedding: Optional[bool] = False,
+        equal_nan_loss_weighting: Optional[bool] = True,
+        classification_task: Optional[str] = "classification",
         **kwargs,
     ):
         """
@@ -1125,6 +1140,10 @@ class BetterGraphormerConfig(GraphormerConfig):
             The method used for reconstructing the masked node properties. Currently only "index_prediction" and "embedding_prediction" are supported.
         detach_target_embedding: bool
             Whether to detach the target embedding from the gradient-computation graph. This forces the model to learn the embedding from the input. 
+        equal_nan_loss_weighting: bool
+            Whether to weight the loss so hat each sample has the same weight regardless of the number of nan targets.
+        classification_task: str
+            The type of classification task. Currently "classification" and "regression" are supported.
             
         All other arguments are passed to the GraphormerConfig superclass.
         """
@@ -1139,3 +1158,5 @@ class BetterGraphormerConfig(GraphormerConfig):
         self.reconstruction_method = reconstruction_method
         self.activation_dropout = activation_dropout
         self.detach_target_embedding = detach_target_embedding
+        self.equal_nan_loss_weighting = equal_nan_loss_weighting
+        self.classification_task = classification_task
