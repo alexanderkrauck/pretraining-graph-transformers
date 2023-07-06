@@ -965,7 +965,7 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
                     loss_fct = MSELoss(reduction="none")
                     loss = loss_fct(logits[mask].squeeze(), labels[mask].squeeze().float())
                     n_not_nan = mask.squeeze().sum(1)
-                    loss_weights = (torch.ones_like(input) / n_not_nan.unsqueeze(1))[mask]
+                    loss_weights = (torch.ones_like(logits) / n_not_nan.unsqueeze(1))[mask]
                     loss = (loss * loss_weights).sum() / logits.shape[0] #better scaling for lr
                 else:
                     loss_fct = MSELoss()
@@ -982,7 +982,7 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
                     loss_fct = BCEWithLogitsLoss(reduction="none")
                     loss = loss_fct(logits[mask], labels[mask])
                     n_not_nan = mask.sum(1)
-                    loss_weights = (torch.ones_like(input) / n_not_nan.unsqueeze(1))[mask]
+                    loss_weights = (torch.ones_like(logits) / n_not_nan.unsqueeze(1))[mask]
                     loss = (loss * loss_weights).sum() / logits.shape[0] #better scaling for lr
                 else:
                     loss_fct = BCEWithLogitsLoss()
