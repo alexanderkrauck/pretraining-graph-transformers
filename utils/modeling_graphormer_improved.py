@@ -968,9 +968,12 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
                 loss = loss_fct(
                     logits[mask].view(-1, self.num_classes), labels[mask].view(-1)
                 )
-            else:  # Binary multi-task classification
-                loss_fct = BCEWithLogitsLoss(reduction="mean")
+            else:  # Binary multi-task classification #TODO: consider making multiple options for this
+                loss_fct = BCEWithLogitsLoss(reduction="none")
                 loss = loss_fct(logits[mask], labels[mask])
+                n_not_nan = mask.sum(1)
+                loss_weights = (torch.ones_like(input) / n_not_nan.unsqueeze(1))[mask]
+                loss = (loss * loss_weights).sum() / logits.shape[0] #better scaling for lr
 
         if not return_dict:
             return tuple(x for x in [loss, logits, hidden_states] if x is not None)
