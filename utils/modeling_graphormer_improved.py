@@ -973,7 +973,7 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
                 loss = loss_fct(logits[mask], labels[mask])
                 n_not_nan = mask.sum(1)
                 loss_weights = (torch.ones_like(input) / n_not_nan.unsqueeze(1))[mask]
-                loss = (loss * loss_weights).mean() * logits.shape[1] #better scaling for lr
+                loss = (loss * loss_weights).sum() / logits.shape[0] #better scaling for lr
 
         if not return_dict:
             return tuple(x for x in [loss, logits, hidden_states] if x is not None)
