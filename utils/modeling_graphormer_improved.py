@@ -261,8 +261,8 @@ class GraphormerGraphAttnBias(nn.Module):
             if self.multi_hop_max_dist > 0:
                 spatial_pos_ = spatial_pos_.clamp(0, self.multi_hop_max_dist)
                 input_edges = input_edges[:, :, :, : self.multi_hop_max_dist, :]
+            
             # [n_graph, n_node, n_node, max_dist, n_head]
-
             input_edges = self.edge_encoder(input_edges).mean(-2)
             max_dist = input_edges.size(-2)
             edge_input_flat = input_edges.permute(3, 0, 1, 2, 4).reshape(
@@ -272,7 +272,7 @@ class GraphormerGraphAttnBias(nn.Module):
                 edge_input_flat,
                 self.edge_dis_encoder.weight.reshape(
                     -1, self.num_heads, self.num_heads
-                )[:max_dist, :, :],
+                )[:max_dist],
             )
             input_edges = edge_input_flat.reshape(
                 max_dist, n_graph, n_node, n_node, self.num_heads
@@ -281,11 +281,10 @@ class GraphormerGraphAttnBias(nn.Module):
                 input_edges.sum(-2) / (spatial_pos_.float().unsqueeze(-1))
             ).permute(0, 3, 1, 2)
         else:
-            # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
+            # [n_graph, n_node, n_node, n_edge_features] -> [n_graph, n_head, n_node, n_node]
             input_edges = self.edge_encoder(attn_edge_type).mean(-2).permute(0, 3, 1, 2)
 
         graph_attn_bias[:, :, 1:, 1:] = graph_attn_bias[:, :, 1:, 1:] + input_edges
-        graph_attn_bias = graph_attn_bias + attn_bias.unsqueeze(1)  # reset
 
         return graph_attn_bias
 
@@ -970,7 +969,7 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
                     logits[mask].view(-1, self.num_classes), labels[mask].view(-1)
                 )
             else:  # Binary multi-task classification
-                loss_fct = BCEWithLogitsLoss(reduction="sum")
+                loss_fct = BCEWithLogitsLoss(reduction="mean")
                 loss = loss_fct(logits[mask], labels[mask])
 
         if not return_dict:
