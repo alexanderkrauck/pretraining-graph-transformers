@@ -1103,6 +1103,7 @@ class GraphormerForPretraining(
             "loss": loss,
             "outputs": outputs,
             "hidden_states": encoder_outputs["hidden_states"],
+            "decoded_masked_outputs_logits": decoded_masked_outputs_logits,
         }
 
 
