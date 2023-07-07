@@ -42,6 +42,7 @@ def main(
     logdir: str = "runs",
     yaml_file: str = "configs/dummy_config.yml",
     from_pretrained: str = None,
+    model_type: str = "graphormer",
     return_trainer_instead=False,
 ):
     """
@@ -54,6 +55,7 @@ def main(
         logdir (str): Directories where logs are stored.
         yaml_file (str): The yaml file with the config.
         from_pretrained (str): Path to a pretrained model.
+        model_type (str): The type of model to use. Either "graphormer" or "graphormer3d".
         return_trainer_instead (bool): If true then the trainer will be returned and not "train" exectued. For debug.
     """
 
@@ -68,6 +70,7 @@ def main(
             logdir,
             yaml_file,
             from_pretrained,
+            model_type,
             return_trainer_instead,
         )
 
@@ -80,8 +83,9 @@ def main(
             logdir,
             yaml_file,
             from_pretrained,
+            model_type,
             return_trainer_instead,
-        )            
+        )
 
 
 def main_run(
@@ -90,9 +94,9 @@ def main_run(
     logdir: str = "runs",
     yaml_file: str = "configs/dummy_config.yml",
     from_pretrained: str = None,
+    model_type: str = "graphormer",
     return_trainer_instead=False,
 ):
-    
     seed = config["seed"]
 
     name = setup_utils.get_experiment_name(config, name)
@@ -111,7 +115,7 @@ def main_run(
     logger.info(f"For this run pretraining is : {pretraining}")
 
     dataset = data_utils.prepare_dataset_for_training(
-        pretraining, seed, **config["data_args"], **config["model_args"]
+        pretraining, seed, model_type = model_type, **config["data_args"], **config["model_args"]
     )
     evaluation_func = evaluate_utils.prepare_evaluation_for_training(
         pretraining, **config["data_args"]
@@ -136,99 +140,38 @@ def main_run(
         **config["trainer_args"],
     )
 
-    if not pretraining:
-        if "labels" in dataset["train"].column_names:
-            label_0 = dataset["train"][0]["labels"]
-        else:
-            label_0 = dataset["train"][0]["target"]
-        if not isinstance(label_0, (list, np.ndarray)):
-            n_classes = 1
-        else:
-            n_classes = len(label_0)
+    num_classes = data_utils.get_dataset_num_classes(**config["data_args"])
+    config["model_args"]["classification_task"] = data_utils.get_dataset_task(
+        **config["data_args"]
+    )
 
-        config["model_args"]["classification_task"] = data_utils.get_dataset_task(**config["data_args"])
-        # Define your custom model here
-        model_config = BetterGraphormerConfig(
-            num_classes=n_classes, **config["model_args"]
-        )
-        if from_pretrained is not None:
-            model = GraphormerForGraphClassification.from_pretrained(
-                from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
-            )
-        else:
-            model = GraphormerForGraphClassification(model_config)
+    model, collator = setup_utils.get_model_and_collator(
+        config, model_type, from_pretrained, num_classes
+    )
 
-        setup_utils.log_model_params(model, logger)
-        on_the_fly_processing = (
-            False if config["data_args"]["memory_mode"] == "full" else True
-        )
-        collator = graphormer_collator_utils.GraphormerDataCollator(
-            model_config=model_config,
-            on_the_fly_processing=on_the_fly_processing,
-            collator_mode="classification",
-        )
+    setup_utils.log_model_params(model, logger)
 
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=dataset["train"],
-            eval_dataset=dataset["validation"],
-            data_collator=collator,
-            compute_metrics=evaluation_func,
-        )
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["validation"],
+        data_collator=collator,
+        compute_metrics=evaluation_func,
+    )
 
-        if return_trainer_instead:
-            return trainer
-        trainer.train()
+    if return_trainer_instead:
+        return trainer
 
-        # Do a test run #TODO: maybe put it in a seperate function/file
-        test_trainer = Trainer(
-            model=model,
-            args=TrainingArguments(
-                report_to=[],
-                output_dir=os.path.join(logpath, "checkpoints"),
-                seed=seed,
-                data_seed=seed,
-                **config["trainer_args"],
-            ),
-            data_collator=collator,
-            compute_metrics=evaluation_func,
-        )
-        test_results = trainer.evaluate(dataset["test"])
+    trainer.train()
 
-        # Prefix all keys in the dictionary with 'test_'
-        test_results = {f"test_{k}": v for k, v in test_results.items()}
+    test_results = trainer.evaluate(dataset["test"])
 
-        # Log the results
-        wandb.log(test_results)
+    # Prefix all keys in the dictionary with 'test_'
+    test_results = {f"test_{k}": v for k, v in test_results.items()}
 
-    else:
-        model_config = BetterGraphormerConfig(**config["model_args"])
-        model = GraphormerForPretraining(model_config)
-        setup_utils.log_model_params(model, logger)
-
-        on_the_fly_processing = (
-            False if config["data_args"]["memory_mode"] == "full" else True
-        )
-        collator = graphormer_collator_utils.GraphormerDataCollator(
-            model_config=model_config,
-            on_the_fly_processing=on_the_fly_processing,
-            collator_mode="pretraining",
-        )
-
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=dataset["train"],
-            eval_dataset=dataset["validation"],
-            data_collator=collator,
-            compute_metrics=evaluation_func,
-        )
-
-        if return_trainer_instead:
-            return trainer
-
-        trainer.train()
+    # Log the results
+    wandb.log(test_results)
 
     wandb.finish()
 
@@ -257,6 +200,14 @@ if __name__ == "__main__":
         "-p",
         "--from_pretrained",
         help="If provided, the pretrained model to use initially.",
+        type=str,
+    )
+
+    parser.add_argument(
+        "-m",
+        "--model_type",
+        help="The type of the model to use",
+        default="graphormer",
         type=str,
     )
 

@@ -20,6 +20,7 @@ from typing import Optional, List, Union
 import copy
 
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
+from utils import graphormer_data_collator_improved_3d as graphormer_collator_utils_3d
 import random
 
 def prepare_dataset_for_training(
@@ -101,6 +102,17 @@ def get_dataset_task(dataset_name: str, **kwargs):
         return "classification"
     if dataset_name in ["qm9", "ZINC"]:
         return "regression"
+    
+def get_dataset_num_classes(dataset_name: str, **kwargs):
+    if dataset_name in ["tox21", "tox21_original"]:
+        return 12
+    if dataset_name in ["pcba"]:
+        return 128
+    if dataset_name in ["qm9"]:
+        return 19
+    if dataset_name in ["ZINC"]:
+        return 1
+    return None
 
 
 class PreloadedDataset(TorchDataset):
@@ -113,6 +125,7 @@ class PreloadedDataset(TorchDataset):
         dataset: Union[Dataset, list],
         column_names: Optional[list] = None,
         preprocess: bool = True,
+        model_type: str = "graphormer",
         **kwargs
     ):
         """
@@ -130,7 +143,10 @@ class PreloadedDataset(TorchDataset):
             for i in tqdm(range(len(dataset))):
                 row = dataset[i]
                 if preprocess:
-                    row = graphormer_collator_utils.preprocess_item(row, **kwargs)
+                    if model_type == "graphormer3d":
+                        row = graphormer_collator_utils_3d.preprocess_3D_item(row, **kwargs)
+                    else:
+                        row = graphormer_collator_utils.preprocess_item(row, **kwargs)
                 self.rows.append(row)
             del dataset
 

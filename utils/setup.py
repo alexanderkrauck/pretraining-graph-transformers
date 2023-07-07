@@ -19,6 +19,21 @@ from pathlib import Path
 import wandb
 import yaml
 
+from utils.modeling_graphormer_improved import (
+    BetterGraphormerConfig,
+    GraphormerForPretraining,
+    GraphormerForGraphClassification,  # This is the new 3D model
+)
+
+from utils.modeling_graphormer_improved_3d import (
+    Graphormer3DForGraphClassification,
+    Graphormer3DConfig,
+    Graphormer3DForPretraining,
+)
+
+from utils.graphormer_data_collator_improved import GraphormerDataCollator
+from utils.graphormer_data_collator_improved_3d import Graphormer3DDataCollator 
+
 
 def get_experiment_name(config, name=None):
     """
@@ -170,3 +185,63 @@ def log_model_params(model, logger):
     paramsum = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     logger.info(f"Total number of trainable parameters: {paramsum}.")
+
+
+def get_model_and_collator(config, model_type, from_pretrained, n_classes):
+
+    pretraining = config.get('pretraining', False)
+   
+    if model_type.lower() == 'graphormer3d':
+        model_config = Graphormer3DConfig(num_classes=n_classes, **config["model_args"])
+    else:
+        model_config = BetterGraphormerConfig(num_classes=n_classes, **config["model_args"])
+
+    if pretraining:
+        if model_type.lower() == 'graphormer3d':
+            if from_pretrained is not None:
+                model = Graphormer3DForPretraining.from_pretrained(from_pretrained, ignore_mismatched_sizes=True)
+            else:
+                model = Graphormer3DForPretraining(model_config)
+            raise NotImplementedError
+        else:
+            if from_pretrained is not None:
+                model = GraphormerForPretraining.from_pretrained(from_pretrained, ignore_mismatched_sizes=True)
+            else:
+                model = GraphormerForPretraining(model_config)
+
+            collator = GraphormerDataCollator(
+                    model_config=model_config,
+                    on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
+                    collator_mode="pretraining",
+                )
+    else:
+
+        if model_type.lower() == 'graphormer3d':
+            if from_pretrained is not None:
+                model = Graphormer3DForGraphClassification.from_pretrained(
+                    from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
+                )
+            else:
+                model = Graphormer3DForGraphClassification(model_config)
+       
+            collator = Graphormer3DDataCollator(
+                model_config=model_config,
+                on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
+                collator_mode="classification",
+            )
+        else:
+            if from_pretrained is not None:
+                model = GraphormerForGraphClassification.from_pretrained(
+                    from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
+                )
+
+            else:
+                model = GraphormerForGraphClassification(model_config)
+
+            collator = GraphormerDataCollator(
+                    model_config=model_config,
+                    on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
+                    collator_mode="classification",
+                )
+
+    return model, collator
