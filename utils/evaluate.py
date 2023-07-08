@@ -31,7 +31,7 @@ class CustomEarlyStoppingCallback(TrainerCallback):
             return
 
         metric_name = args.metric_for_best_model
-        score = metrics[metric_name]
+        score = metrics["eval/"+metric_name]
 
         if self.best_score is None or self.is_metric_better(args, self.best_score, score):
             self.best_score = score

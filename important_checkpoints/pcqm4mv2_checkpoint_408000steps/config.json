@@ -50,5 +50,6 @@
   "traceable": false,
   "transformers_version": "4.29.2",
   "vdim": null,
-  "equal_nan_loss_weighting": true
+  "equal_nan_loss_weighting": true,
+  "classification_task": "regression"
 }
