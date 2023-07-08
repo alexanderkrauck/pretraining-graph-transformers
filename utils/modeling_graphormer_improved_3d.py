@@ -52,9 +52,22 @@ class SelfMultiheadAttention(nn.Module):
         ), "embed_dim must be divisible by num_heads"
         self.scaling = self.head_dim**-0.5
 
-        self.in_proj: Callable[[Tensor], Tensor] = nn.Linear(
-            self.embed_dim, self.embed_dim * 3, bias=config.bias
+        self.k_proj = quant_noise(
+            nn.Linear(config.embedding_dim, config.embedding_dim, bias=config.bias),
+            config.q_noise,
+            config.qn_block_size,
         )
+        self.v_proj = quant_noise(
+            nn.Linear(config.embedding_dim, config.embedding_dim, bias=config.bias),
+            config.q_noise,
+            config.qn_block_size,
+        )
+        self.q_proj = quant_noise(
+            nn.Linear(config.embedding_dim, config.embedding_dim, bias=config.bias),
+            config.q_noise,
+            config.qn_block_size,
+        )
+
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=config.bias)
 
         self.attention_dropout_module = torch.nn.Dropout(
@@ -67,7 +80,10 @@ class SelfMultiheadAttention(nn.Module):
         attn_bias: Tensor = None,
     ) -> Tensor:
         n_node, n_graph, embed_dim = query.size()
-        q, k, v = self.in_proj(query).chunk(3, dim=-1)
+
+        q = self.q_proj(query)
+        k = self.k_proj(query)
+        v = self.v_proj(query)
 
         _shape = (-1, n_graph * self.num_heads, self.head_dim)
         q = q.contiguous().view(_shape).transpose(0, 1) * self.scaling
@@ -188,7 +204,7 @@ class Graphormer3DGraphEncoder(nn.Module):
         self.edge_proj = nn.Linear(config.gaussian_size, config.hidden_size)
         self.bias_proj = nn.Sequential(
             nn.Linear(config.gaussian_size, config.hidden_size),
-            nn.GELU(),
+            ACT2FN[config.activation_fn],
             nn.Linear(config.hidden_size, config.num_attention_heads),
         )
         self.clf_gbf_feature = nn.Parameter(
