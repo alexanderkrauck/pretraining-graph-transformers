@@ -49,5 +49,6 @@
   "torch_dtype": "float32",
   "traceable": false,
   "transformers_version": "4.29.2",
-  "vdim": null
+  "vdim": null,
+  "equal_nan_loss_weighting": true
 }
