@@ -27,14 +27,8 @@ import wandb
 
 # Local application imports
 from utils import data as data_utils
-from utils import graphormer_data_collator_improved as graphormer_collator_utils
 from utils import setup as setup_utils
 from utils import evaluate as evaluate_utils
-from utils.modeling_graphormer_improved import (
-    BetterGraphormerConfig,
-    GraphormerForPretraining,
-    GraphormerForGraphClassification,
-)  # TODO: consider moving the file into a seperate folder
 
 
 def main(
@@ -158,6 +152,7 @@ def main_run(
         eval_dataset=dataset["validation"],
         data_collator=collator,
         compute_metrics=evaluation_func,
+        callbacks=[evaluate_utils.CustomEarlyStoppingCallback(**config["evaluation_args"] if "evaluation_args" in config else {})]
     )
 
     if return_trainer_instead:
