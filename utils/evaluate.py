@@ -30,7 +30,7 @@ class CustomEarlyStoppingCallback(TrainerCallback):
         if self.patience == -1:
             return
 
-        metric_name = args.metric_for_best_modeld
+        metric_name = args.metric_for_best_model
         if "eval_"+metric_name in metrics:
             score = metrics["eval_"+metric_name]
         elif "evel_loss" in metrics:
