@@ -47,7 +47,7 @@ def convert_to_single_emb(x: np.ndarray, offset: int = 512):
 
 
 def preprocess_item(
-    item, num_edge_features: int = 3, single_embedding_offset: int = 512, **kwargs
+    item, num_edge_features: int = 3, single_embedding_offset: int = 512, multi_hop_max_dist: int = 5, edge_type: str = "multi_hop", **kwargs
 ):
     """
     Preprocess a single item from a dataset.
@@ -91,11 +91,13 @@ def preprocess_item(
     # NOTE: for now ignore unconnected nodes
     reachable_mask = shortest_path_result < 510
     max_dist = np.amax(shortest_path_result[reachable_mask])
+    if max_dist > multi_hop_max_dist:
+        max_dist = multi_hop_max_dist
 
     # input edges is of shape [num_nodes, num_nodes, max_dist, num_edge_features]
     # If there is a unconnected node in the graph, the input_edges will be [num_nodes, num_nodes, 510, num_edge_features]
     # That is quite large and I need to make sure the data is correctly preprocessed so this only happens for a few samples if at all.
-    if max_dist != 0:
+    if max_dist != 0 and edge_type == "multi_hop":
         input_edges = algos_graphormer.gen_edge_input(max_dist, path, attn_edge_type)
     else:
         input_edges = np.zeros(
@@ -163,6 +165,8 @@ class GraphormerDataCollator:
         self.num_edge_features = model_config.num_edge_properties
         self.mask_prob = model_config.mask_prob
         self.single_embedding_offset = model_config.single_embedding_offset
+        self.multi_hop_max_dist = model_config.multi_hop_max_dist
+        self.edge_type = model_config.edge_type
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
         if not isinstance(features[0], Mapping):
@@ -170,7 +174,7 @@ class GraphormerDataCollator:
 
         if self.on_the_fly_processing:
             features = [
-                preprocess_item(f, self.num_edge_features, self.single_embedding_offset)
+                preprocess_item(f, self.num_edge_features, self.single_embedding_offset, self.multi_hop_max_dist, self.edge_type)
                 for f in features
             ]
 
