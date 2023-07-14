@@ -1,5 +1,13 @@
-# Copyright (c) Microsoft Corporation and HuggingFace
-# Licensed under the MIT License.
+"""
+Graphormer3D Data Collator.
+
+This code contains a mix from multiple sources and has multiple licenses.
+Copyright (c) 2023 Microsoft, The HuggingFace Inc. team. under the MIT License.
+See LICENSE_MICROSOFT.txt in the project root for license information.
+
+Modified and additional code Copyright (c) 2023 Alexander Krauck under the MIT License.
+See LICENSE.txt in the project root for license information.
+"""
 
 from typing import Any, Dict, List, Mapping
 

@@ -1,4 +1,16 @@
-# TODO write docstring
+"""
+Improved version of the Graphormer model.
+
+This file contains code licensed under different terms:
+Original Code Copyright 2022 Microsoft, clefourrier The HuggingFace Inc. team. under the Apache 2.0 License
+Modified Code Copyright (c) 2023 Alexander Krauck under the MIT license
+
+For the original license, see LICENSE_HUGGINGFACE.txt in the project root. 
+For the modified license, see LICENSE.txt in the project root.
+
+Details of the modifications:
+TODO
+"""
 
 import math
 from typing import Optional, Tuple, Union

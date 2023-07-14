@@ -1,3 +1,17 @@
+"""
+Graphormer3D with the ability to utilize multiple node features.
+
+This code mixes code from mutiple sources and has multiple licenses.
+Copyright (c) 2023 microsoft/Graphormer Contributors under the MIT License. 
+See LICENSE_MICROSOFT.txt in the project root for license information.
+
+Copyright (c) 2023 Microsoft, clefourrier The HuggingFace Inc. team. under the Apache 2.0 License.
+See LICENSE_HUGGINGFACE.txt in the project root for license information.
+
+Modified and additional code Copyright (c) 2023 Alexander Krauck under the MIT License.
+See LICENSE.txt in the project root for license information.
+"""
+
 from utils.modeling_graphormer_improved import *
 
 from torch import Tensor

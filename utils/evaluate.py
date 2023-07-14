@@ -1,3 +1,12 @@
+"""
+Utility functions/classes for doing evaluation on the model.
+
+Copyright (c) 2023 Alexander Krauck
+
+This code is distributed under the MIT license. See LICENSE.txt file in the 
+project root for full license information.
+"""
+
 from sklearn.metrics import roc_auc_score
 import numpy as np
 from functools import partial

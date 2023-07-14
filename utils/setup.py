@@ -5,6 +5,11 @@ Functions included in this module are:
 
 - load_config: Loads a YAML configuration file and returns a dictionary of the configuration.
 - setup_logging: Sets up a logger for the experiment that logs to both the console and a specified log file.
+
+Copyright (c) 2023 Alexander Krauck
+
+This code is distributed under the MIT license. See LICENSE.txt file in the 
+project root for full license information.
 """
 
 __author__ = "Alexander Krauck"

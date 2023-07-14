@@ -1,14 +1,18 @@
 """
 Utility functions for data preprocessing.
 
-This file contains modified code based on Fey Matthias and Lenssen Jan E. implementation.
-
 Original Source: https://github.com/pyg-team/pytorch_geometric
 Original Code Title: Took some parts from torch_geometric/utils/smiles.py
 
 The modifications made in this file include:
 - x_map and e_map.
 - Parts of the process_molecule function.
+
+Original Code Copyright (c) 2023 PyG Team <team@pyg.org>
+Modified Code Copyright (c) 2023 Alexander Krauck
+
+This code is distributed under the MIT license. See LICENSE_PYTORCH_GEOMETRIC.txt and LICENSE.txt file in the 
+project root for full license information.
 """
 
 __author__ = "Alexander Krauck"
