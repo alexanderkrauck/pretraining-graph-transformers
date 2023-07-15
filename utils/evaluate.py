@@ -116,12 +116,34 @@ def multi_label_metrics(eval_pred: tuple, label_names):
 
     return {**mean_metrics, **roc_auc_per_label, **accuracy_per_label}
 
-#TODO:!!!
-def regression_metrics(eval_pred: tuple, label_names):
-    pass
+def regression_metrics(eval_pred: tuple, label_names, target_scaler):
+    logits, labels = eval_pred
+    logits = logits[0]
+
+    return_metrics = {}
+    if isinstance(label_names, str):
+        label_names = [label_names]
+    for idx, label_name in enumerate(label_names):
+        mask = ~np.isnan(labels[:, idx])
+        masked_labels = labels[:, idx][mask]
+        masked_logits = logits[:, idx][mask]
+        mse = np.mean(np.square(masked_logits - masked_labels))
+        return_metrics[f"{label_name}_mse"] = mse
+
+    if target_scaler is not None:
+        unscaled_logits = target_scaler.inverse_transform(logits)
+        unsclaed_targets = target_scaler.inverse_transform(labels)
+        for idx, label_name in enumerate(label_names):
+            mask = ~np.isnan(labels[:, idx])
+            masked_labels = unscaled_logits[:, idx][mask]
+            masked_logits = unsclaed_targets[:, idx][mask]
+            mse = np.mean(np.square(masked_logits - masked_labels))
+            return_metrics[f"{label_name}_unscaled_mse"] = mse
+
+    return return_metrics
 
 
-def prepare_evaluation_for_training(pretraining: bool, dataset_name: str, **kwargs):
+def prepare_evaluation_for_training(pretraining: bool, dataset_name: str, target_scaler = None, **kwargs):
     if not pretraining:
         if dataset_name in ["tox21_original", "tox21"]:
             return partial(
@@ -142,7 +164,11 @@ def prepare_evaluation_for_training(pretraining: bool, dataset_name: str, **kwar
                 ],
             )
         if dataset_name == "ZINC":
-            label_name = "penalized logP"
+            return partial(
+                regression_metrics,
+                label_names="penalized logP",
+                target_scaler = target_scaler
+            )
             return None
         if dataset_name == "qm9":
             return partial(
@@ -168,6 +194,7 @@ def prepare_evaluation_for_training(pretraining: bool, dataset_name: str, **kwar
                     "h298_atom",
                     "g298_atom",
                 ],
+                target_scaler = target_scaler
             )
         raise ValueError("Invalid dataset name for fine tuning.")
     else:

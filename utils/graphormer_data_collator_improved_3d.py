@@ -9,10 +9,12 @@ Modified and additional code Copyright (c) 2023 Alexander Krauck under the MIT L
 See LICENSE.txt in the project root for license information.
 """
 
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, List, Mapping, Optional
 
 import numpy as np
 import torch
+from sklearn.preprocessing import StandardScaler
+
 
 
 # This is needed because in the model the same embedding is used for each of the dimensions atom/edges.
@@ -77,6 +79,7 @@ class Graphormer3DDataCollator:
         model_config,
         on_the_fly_processing: bool = True,
         collator_mode: str = "classifcation",
+        target_scaler: Optional[StandardScaler] = None,
     ):
         """
         Data collator for Graphormer.
@@ -97,6 +100,8 @@ class Graphormer3DDataCollator:
         self.single_embedding_offset = model_config.single_embedding_offset
         self.pretraining_method = model_config.pretraining_method
         self.noise_std = model_config.noise_std
+        self.classification_task = model_config.classification_task
+        self.target_scaler = target_scaler
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
         if not isinstance(features[0], Mapping):
@@ -188,16 +193,20 @@ class Graphormer3DDataCollator:
             sample = features[0]["labels"]
 
             if not isinstance(sample, (list, np.ndarray)):  # one task
-                batch["labels"] = torch.tensor([i["labels"] for i in features])
+                batch["labels"] = torch.tensor([i["labels"] for i in features]).unsqueeze(-1)
             elif len(sample) == 1:
                 batch["labels"] = torch.from_numpy(
                     np.concatenate([i["labels"] for i in features])
                 )
-            else:  # multi task classification, left to float to keep the NaNs
+            else:  # multi task classification or multiple regression, left to float to keep the NaNs
                 batch["labels"] = torch.from_numpy(
                     np.stack([i["labels"] for i in features])
                 )
-
+            if self.classification_task == "regression" and self.target_scaler:
+                batch["labels"] = torch.from_numpy(
+                    self.target_scaler.transform(batch["labels"].numpy())
+                )
+                
         if not self.collator_mode == "inference":
             batch["return_loss"] = True
 

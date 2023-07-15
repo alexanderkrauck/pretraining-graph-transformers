@@ -192,7 +192,7 @@ def log_model_params(model, logger):
     logger.info(f"Total number of trainable parameters: {paramsum}.")
 
 
-def get_model_and_collator(config, model_type, from_pretrained, n_classes):
+def get_model_and_collator(config, model_type, from_pretrained, n_classes, target_scaler=None):
 
     pretraining = config.get('pretraining', False)
    
@@ -212,6 +212,7 @@ def get_model_and_collator(config, model_type, from_pretrained, n_classes):
                 model_config=model_config,
                 on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
                 collator_mode="pretraining",
+                target_scaler=target_scaler,
             )
         else:
             if from_pretrained is not None:
@@ -238,6 +239,7 @@ def get_model_and_collator(config, model_type, from_pretrained, n_classes):
                 model_config=model_config,
                 on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
                 collator_mode="classification",
+                target_scaler=target_scaler,
             )
         else:
             if from_pretrained is not None:

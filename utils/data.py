@@ -28,6 +28,12 @@ from utils import graphormer_data_collator_improved as graphormer_collator_utils
 from utils import graphormer_data_collator_improved_3d as graphormer_collator_utils_3d
 import random
 
+from sklearn.model_selection import KFold
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
+
+
 def prepare_dataset_for_training(
     pretraining: bool,
     seed: int,
@@ -70,9 +76,7 @@ def prepare_dataset_for_training(
             )
 
         if dataset_name == "qm9":
-            dataset = load_from_disk(
-                join(data_dir, "qm9/processed/arrow")
-            )
+            dataset = load_from_disk(join(data_dir, "qm9/processed/arrow"))
 
     else:
         if dataset_name == "pcqm4mv2":
@@ -81,13 +85,9 @@ def prepare_dataset_for_training(
                 keep_in_memory=False,
             )
         if dataset_name == "pcba":
-            dataset = load_from_disk(
-                join(data_dir, "pcba/processed/arrow")
-            )
+            dataset = load_from_disk(join(data_dir, "pcba/processed/arrow"))
         if dataset_name == "qm9":
-            dataset = load_from_disk(
-                join(data_dir, "qm9/processed/arrow")
-            )
+            dataset = load_from_disk(join(data_dir, "qm9/processed/arrow"))
 
     if dataset is None:
         raise ValueError(f"Invalid dataset name for pretraining = {pretraining}.")
@@ -102,12 +102,54 @@ def prepare_dataset_for_training(
 
     return dataset
 
+
+def prepare_cv_dataset_for_training(
+    seed: int,
+    dataset_name: str,
+    data_dir: str,
+    memory_mode: str,
+    num_folds: int,
+    train_split: float,
+    **kwargs,
+):
+    """
+    Prepare the dataset for training.
+
+    Args
+    ----
+        pretraining (bool): Whether to use the pretraining dataset or the finetuning dataset.
+        seed (int): The random seed to use for splitting the dataset.
+        dataset_name (str): Name of the dataset.
+        data_dir (str): Path to the data directory.
+        memory_mode (str): Whether to load the dataset in memory or not. Can be one of ['full', 'half', 'cache'].
+        num_folds (int): Number of folds to use for cross validation.
+    """
+
+    if dataset_name == "tox21":
+        dataset = load_from_disk(join(data_dir, "tox21/processed/arrow"))
+
+    if dataset_name == "qm9":
+        dataset = load_from_disk(join(data_dir, "qm9/processed/arrow"))
+
+    if memory_mode in ["full", "half"]:
+        dataset = to_preloaded_dataset(
+            dataset, preprocess=True if memory_mode == "full" else False, **kwargs
+        )
+    else:
+        raise ValueError(f"Invalid memory mode {memory_mode}.")
+
+    datasets = dataset.train_test_split(1 - train_split, seed=seed)
+
+    return datasets, datasets["train"].k_fold_index_split(num_folds, seed)
+
+
 def get_dataset_task(dataset_name: str, **kwargs):
     if dataset_name in ["pcba", "tox21", "tox21_original"]:
         return "classification"
     if dataset_name in ["qm9", "ZINC"]:
         return "regression"
-    
+
+
 def get_dataset_num_classes(dataset_name: str, **kwargs):
     if dataset_name in ["tox21", "tox21_original"]:
         return 12
@@ -131,7 +173,7 @@ class PreloadedDataset(TorchDataset):
         column_names: Optional[list] = None,
         preprocess: bool = True,
         model_type: str = "graphormer",
-        **kwargs
+        **kwargs,
     ):
         """
         Args
@@ -149,7 +191,9 @@ class PreloadedDataset(TorchDataset):
                 row = dataset[i]
                 if preprocess:
                     if model_type == "graphormer3d":
-                        row = graphormer_collator_utils_3d.preprocess_3D_item(row, **kwargs)
+                        row = graphormer_collator_utils_3d.preprocess_3D_item(
+                            row, **kwargs
+                        )
                     else:
                         row = graphormer_collator_utils.preprocess_item(row, **kwargs)
                 self.rows.append(row)
@@ -179,6 +223,21 @@ class PreloadedDataset(TorchDataset):
                 self.rows[split_index:], column_names=self.column_names
             ),
         }
+
+    def k_fold_index_split(self, n_folds=5, seed=None):
+        """
+        Split the dataset into K folds.
+
+        Args
+        ----
+            n_folds (int): The number of folds.
+            seed (int): The seed for the random number generator.
+        """
+        indices = list(range(len(self.rows)))
+        kf = KFold(n_splits=n_folds, shuffle=True, random_state=seed)
+        folds = list(kf.split(indices))
+
+        return folds
 
     def __getitem__(self, idx):
         return copy.deepcopy(self.rows[idx])
@@ -228,6 +287,30 @@ def to_preloaded_dataset(
         preprocess (bool): Whether to preprocess the dataset already.
     """
     if isinstance(dataset, DatasetDict):
-        return {k: to_preloaded_dataset(v, preprocess, **kwargs) for k, v in dataset.items()}
+        return {
+            k: to_preloaded_dataset(v, preprocess, **kwargs) for k, v in dataset.items()
+        }
 
     return PreloadedDataset(dataset, preprocess, **kwargs)
+
+
+def is_cross_val_dataset(dataset_name: str, **kwargs):
+    """
+    Check if the dataset is a cross validation dataset.
+
+    Args
+    ----
+        dataset_name (str): The name of the dataset.
+    """
+    return dataset_name.lower() in ["pcba", "tox21", "qm9"]
+
+def get_regression_target_scaler(dataset, num_classes: int):
+    targets = []
+    for item in dataset:
+        targets.append(item["labels"])
+    target_scaler = StandardScaler()
+    target_array = np.array(targets)
+    if num_classes == 1:
+        target_array = target_array.reshape(-1, 1)
+    target_scaler.fit(target_array)
+    return target_scaler
