@@ -207,7 +207,12 @@ def get_model_and_collator(config, model_type, from_pretrained, n_classes):
                 model = Graphormer3DForPretraining.from_pretrained(from_pretrained, ignore_mismatched_sizes=True)
             else:
                 model = Graphormer3DForPretraining(model_config)
-            raise NotImplementedError
+            
+            collator = Graphormer3DDataCollator(
+                model_config=model_config,
+                on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
+                collator_mode="pretraining",
+            )
         else:
             if from_pretrained is not None:
                 model = GraphormerForPretraining.from_pretrained(from_pretrained, ignore_mismatched_sizes=True)

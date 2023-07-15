@@ -535,7 +535,7 @@ class Graphormer3DForPretraining(
 
     def __init__(self, config):
         super().__init__(config)
-        self.encoder = GraphormerModel(config)
+        self.encoder = Graphormer3DModel(config)
         self.embedding_dim = config.embedding_dim
 
         self.pretraining_method = config.pretraining_method
@@ -575,7 +575,7 @@ class Graphormer3DForPretraining(
         input_nodes,
         pos,
         labels,
-        mask,
+        mask = None,
         return_dict: Optional[bool] = None,
         **unused,
     ) -> Union[Tuple[torch.Tensor], SequenceClassifierOutput]:
@@ -625,24 +625,33 @@ class Graphormer3DForPretraining(
                     embedded_target,
                 ) #TODO: need regularization here, otherwise all embeddings will converge to a single value
         # NOTE: possibly assert that outputs on second dim are the same size as input_nodes on second dim
+            return {
+                "loss": loss,
+                "outputs": outputs,
+                "hidden_states": encoder_outputs["hidden_states"],
+                "decoded_masked_outputs_logits": decoded_masked_outputs_logits,
+            }
 
         elif self.pretraining_method == "noise_prediction":
-            outputs = outputs[:, 1:][mask]  # don't need the CLS token
+            outputs = outputs[:, 1:] # don't need the CLS token
 
-            predicted_noise = self.decoder(outputs) #we try to predict the noise magnitude. Then it is rotationally invariant
+            predicted_noise = self.decoder(outputs).squeeze() #we try to predict the noise magnitude. Then it is rotationally invariant
             loss = self.loss(predicted_noise, labels)
 
+            return {
+                "loss": loss,
+                "outputs": outputs,
+                "hidden_states": encoder_outputs["hidden_states"]
+            }
 
-        return {
-            "loss": loss,
-            "outputs": outputs,
-            "hidden_states": encoder_outputs["hidden_states"],
-            "decoded_masked_outputs_logits": decoded_masked_outputs_logits,
-        }
+
+
 
 
 class Graphormer3DConfig(BetterGraphormerConfig):
-    def __init__(self, gaussian_size: int = 128, **kwargs):
+    def __init__(self, gaussian_size: int = 128, noise_std: float = 0.1, **kwargs):
         super().__init__(**kwargs)
 
         self.gaussian_size = gaussian_size
+        self.noise_std = noise_std
+        

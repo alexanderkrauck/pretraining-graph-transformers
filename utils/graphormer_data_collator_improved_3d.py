@@ -95,6 +95,8 @@ class Graphormer3DDataCollator:
         self.collator_mode = collator_mode
         self.mask_prob = model_config.mask_prob
         self.single_embedding_offset = model_config.single_embedding_offset
+        self.pretraining_method = model_config.pretraining_method
+        self.noise_std = model_config.noise_std
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
         if not isinstance(features[0], Mapping):
@@ -130,11 +132,13 @@ class Graphormer3DDataCollator:
 
         n_node_list = []
 
-        # if self.collator_mode == "pretraining":
-        #     # NOTE: this is only for pretraining
-        #     batch["mask"] = torch.zeros(
-        #         batch_size, max_node_num, dtype=torch.long
-        #     ).bool()
+        if self.collator_mode == "pretraining":
+            if self.pretraining_method == "mask_prediction":
+                batch["mask"] = torch.zeros(
+                    batch_size, max_node_num, dtype=torch.long
+                ).bool()
+            elif self.pretraining_method == "noise_prediction":
+                noise3d = torch.randn(batch_size, max_node_num, 3) * self.noise_std
 
         for ix, f in enumerate(features):
 
@@ -154,25 +158,31 @@ class Graphormer3DDataCollator:
             # TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
             
 
-            # if self.collator_mode == "pretraining":
-            #     mask = torch.rand(n_nodes) < self.mask_prob
-            #     if not torch.any(mask):
-            #         mask[torch.randint(0, n_nodes, (1,))] = True
-            #     batch["mask"][ix, :n_nodes] = mask
+            if self.collator_mode == "pretraining":
+                if self.pretraining_method == "mask_prediction":
+                    mask = torch.rand(n_nodes) < self.mask_prob
+                    if not torch.any(mask):
+                        mask[torch.randint(0, n_nodes, (1,))] = True
+                    batch["mask"][ix, :n_nodes] = mask
+                elif self.pretraining_method == "noise_prediction":
+                    noise3d[ix, n_nodes:] = 0
 
         batch["n_nodes"] = torch.tensor(n_node_list, dtype=torch.long)
 
         # Only add labels if they are in the features. For inference, or pretraining, the features won't have labels.
-        # if self.collator_mode == "pretraining":
+        if self.collator_mode == "pretraining":
+            if self.pretraining_method == "mask_prediction":
+                batch["labels"] = batch["input_nodes"][batch["mask"]]
+                for i in range(batch["labels"].shape[1]):
+                    batch["labels"][:, i] = (
+                        batch["labels"][:, i] - i * self.single_embedding_offset
+                    )
 
-        #     batch["labels"] = batch["input_nodes"][batch["mask"]]
-        #     for i in range(batch["labels"].shape[1]):
-        #         batch["labels"][:, i] = (
-        #             batch["labels"][:, i] - i * self.single_embedding_offset
-        #         )
-
-        #     batch["input_nodes"][batch["mask"]] = self.single_embedding_offset - 1
-        #     batch["n_masked_nodes"] = torch.sum(batch["mask"], dim=-1)
+                batch["input_nodes"][batch["mask"]] = self.single_embedding_offset - 1
+                batch["n_masked_nodes"] = torch.sum(batch["mask"], dim=-1)
+            elif self.pretraining_method == "noise_prediction":
+                batch["pos"] = batch["pos"] + noise3d
+                batch["labels"] = torch.norm(noise3d, dim=-1)
 
         if self.collator_mode == "classification":
             sample = features[0]["labels"]
