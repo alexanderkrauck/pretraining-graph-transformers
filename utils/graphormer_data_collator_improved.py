@@ -21,7 +21,7 @@ if is_cython_available():
     import pyximport
 
     pyximport.install(setup_args={"include_dirs": np.get_include()})
-    from transformers.models.graphormer import algos_graphormer  # noqa E402
+    from . import algos_graphormer_improved as algos_graphormer  # noqa E402
 
 
 # This is needed because in the model the same embedding is used for each of the dimensions atom/edges.
