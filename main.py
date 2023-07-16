@@ -197,9 +197,10 @@ def main_cv_run(config, name, logdir, yaml_file, from_pretrained, model_type):
 
         seed_config = config.copy()
         seed_config["seed"] = seed
-        name = setup_utils.get_experiment_name(seed_config, name)
-        logpath = os.path.join(logdir, name)
-        logger = setup_utils.setup_logging(logpath, name, yaml_file)
+        run_name = setup_utils.get_experiment_name(seed_config, name)
+        logpath = os.path.join(logdir, run_name)
+        logger = setup_utils.setup_logging(logpath, run_name, yaml_file)
+        setup_utils.setup_wandb(run_name, logdir, seed_config)
 
         
 
@@ -214,7 +215,7 @@ def main_cv_run(config, name, logdir, yaml_file, from_pretrained, model_type):
             logging_dir=logpath,
             seed=seed,
             data_seed=seed,
-            run_name=name,
+            run_name=run_name,
             report_to=["wandb", "tensorboard"],
             **seed_config["trainer_args"],
         )
