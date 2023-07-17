@@ -224,6 +224,7 @@ def get_model_and_collator(config, model_type, from_pretrained, n_classes, targe
                     model_config=model_config,
                     on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
                     collator_mode="pretraining",
+                    target_scaler = target_scaler
                 )
     else:
 
@@ -254,6 +255,7 @@ def get_model_and_collator(config, model_type, from_pretrained, n_classes, targe
                     model_config=model_config,
                     on_the_fly_processing=False if config["data_args"]["memory_mode"] == "full" else True,
                     collator_mode="classification",
+                    target_scaler = target_scaler
                 )
 
     return model, collator
