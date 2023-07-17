@@ -7,7 +7,7 @@ import subprocess
 from argparse import ArgumentParser
 
 
-def load_all_data(data_dir: str = "data", create_conformers: bool = True):
+def load_all_data(data_dir: str = "data", create_conformers: bool = True, process_to_model_input: bool = False):
     print(f"loading all data to {data_dir}. This may take a while.")
 
     #TODO: consider adding checks for the data already being downloaded.
@@ -157,6 +157,7 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
         to_disk_location=join(data_dir, "tox21/processed/arrow"),
         include_conformer=create_conformers,
         id_column=12,
+        target_columns = [0,1,2,3,4,5,6,7,8,9,10,11],
         cache_dir=join(data_dir, "huggingface")
     )
 
@@ -235,38 +236,39 @@ def load_all_data(data_dir: str = "data", create_conformers: bool = True):
 
     dataset_dict.save_to_disk(join(data_dir, "ZINC/processed/arrow"))
 
-    # Here start the mapping of the data to input format to the model
-    print("mapping data to input format to the model")
+    if process_to_model_input:
+        # Here start the mapping of the data to input format to the model
+        print("mapping data to input format to the model")
 
-    print("mapping pcqm4mv2 data to input format to the model")
-    preprocessing_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False
-    )
+        print("mapping pcqm4mv2 data to input format to the model")
+        preprocessing_utils.map_arrow_dataset_from_disk(
+            join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False
+        )
 
-    print("mapping tox21_original data to input format to the model")
-    preprocessing_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "tox21_original/processed"), is_dataset_dict=True
-    )
+        print("mapping tox21_original data to input format to the model")
+        preprocessing_utils.map_arrow_dataset_from_disk(
+            join(data_dir, "tox21_original/processed"), is_dataset_dict=True
+        )
 
-    print("mapping tox21 data to input format to the model")
-    preprocessing_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "tox21/processed"), is_dataset_dict=False
-    )
+        print("mapping tox21 data to input format to the model")
+        preprocessing_utils.map_arrow_dataset_from_disk(
+            join(data_dir, "tox21/processed"), is_dataset_dict=False
+        )
 
-    print("mapping pcba data to input format to the model")
-    preprocessing_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "qm9/processed"), is_dataset_dict=False
-    )
+        print("mapping pcba data to input format to the model")
+        preprocessing_utils.map_arrow_dataset_from_disk(
+            join(data_dir, "qm9/processed"), is_dataset_dict=False
+        )
 
-    print("mapping qm9 data to input format to the model")
-    preprocessing_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "ZINC/processed"), is_dataset_dict=True
-    )
+        print("mapping qm9 data to input format to the model")
+        preprocessing_utils.map_arrow_dataset_from_disk(
+            join(data_dir, "ZINC/processed"), is_dataset_dict=True
+        )
 
-    print("mapping pcba data to input format to the model")
-    preprocessing_utils.map_arrow_dataset_from_disk(
-        join(data_dir, "pcba/processed"), is_dataset_dict=False
-    )
+        print("mapping pcba data to input format to the model")
+        preprocessing_utils.map_arrow_dataset_from_disk(
+            join(data_dir, "pcba/processed"), is_dataset_dict=False
+        )
 
     print("\nData loading finished!\n")
 
