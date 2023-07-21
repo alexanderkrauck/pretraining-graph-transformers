@@ -135,6 +135,7 @@ class GraphormerDataCollator:
         spatial_pos_max: int = 20,
         on_the_fly_processing: bool = True,
         collator_mode: str = "classifcation",
+        target_scaler = None
     ):
         """
         Data collator for Graphormer.
@@ -167,6 +168,8 @@ class GraphormerDataCollator:
         self.single_embedding_offset = model_config.single_embedding_offset
         self.multi_hop_max_dist = model_config.multi_hop_max_dist
         self.edge_type = model_config.edge_type
+        self.classification_task = model_config.classification_task
+        self.target_scaler = target_scaler
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
         if not isinstance(features[0], Mapping):
@@ -282,7 +285,7 @@ class GraphormerDataCollator:
             sample = features[0]["labels"]
 
             if not isinstance(sample, (list, np.ndarray)):  # one task
-                batch["labels"] = torch.tensor([i["labels"] for i in features])
+                batch["labels"] = torch.tensor([i["labels"] for i in features]).unsqueeze(-1)
             elif len(sample) == 1:
                 batch["labels"] = torch.from_numpy(
                     np.concatenate([i["labels"] for i in features])
@@ -290,6 +293,11 @@ class GraphormerDataCollator:
             else:  # multi task classification, left to float to keep the NaNs
                 batch["labels"] = torch.from_numpy(
                     np.stack([i["labels"] for i in features])
+                )
+
+            if self.classification_task == "regression" and self.target_scaler:
+                batch["labels"] = torch.from_numpy(
+                    self.target_scaler.transform(batch["labels"].numpy())
                 )
 
         if not self.collator_mode == "inference":

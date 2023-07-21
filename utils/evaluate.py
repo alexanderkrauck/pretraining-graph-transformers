@@ -70,6 +70,10 @@ class CustomEarlyStoppingCallback(TrainerCallback):
             return (current_score - best_score) >= self.threshold
 
 
+def stable_sigmoid(x, C=40.0):
+      # clamp range; you might need to adjust this depending on your use case
+    x_clamped = np.clip(x, -C, C)
+    return 1 / (1 + np.exp(-x_clamped))
 
 def multi_label_metrics(eval_pred: tuple, label_names):
     """
@@ -85,7 +89,7 @@ def multi_label_metrics(eval_pred: tuple, label_names):
 
     logits, labels = eval_pred
     logits = logits[0]
-    probs = 1 / (1 + np.exp(-logits))
+    probs = stable_sigmoid(logits)
 
     # Create mask for valid (non-NaN) labels
     valid_labels_mask = ~np.isnan(labels)
