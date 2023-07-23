@@ -123,7 +123,7 @@ def multi_label_metrics(eval_pred: tuple, label_names):
 def regression_metrics(eval_pred: tuple, label_names, target_scaler):
     logits, labels = eval_pred
     logits = logits[0]
-
+    maes = []
     return_metrics = {}
     if isinstance(label_names, str):
         label_names = [label_names]
@@ -132,7 +132,12 @@ def regression_metrics(eval_pred: tuple, label_names, target_scaler):
         masked_labels = labels[:, idx][mask]
         masked_logits = logits[:, idx][mask]
         mse = np.mean(np.square(masked_logits - masked_labels))
+        mae = np.mean(np.abs(masked_logits - masked_labels))
+        maes.append(mae)
         return_metrics[f"{label_name}_mse"] = mse
+        return_metrics[f"{label_name}_mae"] = mae
+    if len(maes) > 1:
+        return_metrics["mean_mae"] = np.mean(maes)
 
     if target_scaler is not None:
         unscaled_logits = target_scaler.inverse_transform(logits)
@@ -142,7 +147,9 @@ def regression_metrics(eval_pred: tuple, label_names, target_scaler):
             masked_labels = unscaled_logits[:, idx][mask]
             masked_logits = unsclaed_targets[:, idx][mask]
             mse = np.mean(np.square(masked_logits - masked_labels))
+            mae = np.mean(np.abs(masked_logits - masked_labels))
             return_metrics[f"{label_name}_unscaled_mse"] = mse
+            return_metrics[f"{label_name}_unscaled_mae"] = mse
 
     return return_metrics
 
