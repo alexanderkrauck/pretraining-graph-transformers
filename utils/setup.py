@@ -231,7 +231,7 @@ def get_model_and_collator(config, model_type, from_pretrained, n_classes, targe
         if model_type.lower() == 'graphormer3d':
             if from_pretrained is not None:
                 model = Graphormer3DForGraphClassification.from_pretrained(
-                    from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
+                    from_pretrained, num_classes=n_classes, classification_task= model_config.classification_task, ignore_mismatched_sizes=True
                 )
             else:
                 model = Graphormer3DForGraphClassification(model_config)
@@ -245,7 +245,7 @@ def get_model_and_collator(config, model_type, from_pretrained, n_classes, targe
         else:
             if from_pretrained is not None:
                 model = GraphormerForGraphClassification.from_pretrained(
-                    from_pretrained, num_classes=n_classes, ignore_mismatched_sizes=True
+                    from_pretrained, num_classes=n_classes, classification_task= model_config.classification_task, ignore_mismatched_sizes=True
                 )
 
             else:
