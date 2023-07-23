@@ -1,6 +1,6 @@
 # General Settings
 pretraining: False
-seed: 42
+seed: [99,100]
 batch_size: 256
 
 # Data Settings
@@ -29,9 +29,12 @@ trainer_args:
   num_train_epochs: 10000
   max_steps: 400000
 
-  evaluation_strategy: 'epoch'
-  logging_strategy: 'epoch'
-  save_strategy: 'epoch'
+  evaluation_strategy: 'steps'
+  logging_strategy: 'steps'
+  save_strategy: 'steps'
+  eval_steps: 250
+  logging_steps: 250
+  save_steps: 250
   do_eval: True  # whether to run evaluation during training
 
   save_total_limit: 4  # limit the total amount of checkpoints and deletes the older checkpoints
@@ -60,3 +63,7 @@ model_args:
   apply_graphormer_init: True # Apply the graphormer additional initialization to the model. #NOTE: not 100% sure what this does
   encoder_normalize_before: True # Apply the layer norm before each encoder block.
   pre_layernorm: False # Apply layernorm before self attention and the feed forward network. Without this, post layernorm will be used.
+
+evaluation_args:
+  early_stopping_patience: 200
+  early_stopping_threshold: 0.0025

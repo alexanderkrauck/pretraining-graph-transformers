@@ -1,18 +1,18 @@
 # General Settings
 pretraining: False
-seed: [1212,1254]
+seed: [72,73,74,75,76,77,78,79,80,81]
 batch_size: 256
 
 # Data Settings
 data_args:
-  dataset_name: 'tox21_original'  # dataset name or path to dataset
+  dataset_name: 'qm9'  # dataset name or path to dataset
   data_dir: '/system/user/publicwork/student/krauck/graph_data/'  # directory to save the datasets
   memory_mode: 'full'  # Either "full", "half" or "cache". "full" and "half" need significantly more RAM but are faster.
-
+  train_split: 0.9
 
 # Trainer Settings, see https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments
 trainer_args: 
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 1
   dataloader_num_workers: 4 # number of subprocesses for data loading
   remove_unused_columns: True 
 
@@ -25,19 +25,22 @@ trainer_args:
   adam_epsilon: 1.0e-8  # epsilon for Adam optimizer
   max_grad_norm: 5.0
 
-  warmup_steps: 10000  # number of steps for linear lr warmup
+  warmup_steps: 40000  # number of steps for linear lr warmup
   num_train_epochs: 10000
-  max_steps: 200000
+  max_steps: 400000
 
-  evaluation_strategy: 'epoch'
-  logging_strategy: 'epoch'
-  save_strategy: 'epoch'
+  evaluation_strategy: 'steps'
+  logging_strategy: 'steps'
+  save_strategy: 'steps'
+  eval_steps: 250
+  logging_steps: 250
+  save_steps: 250
   do_eval: True  # whether to run evaluation during training
 
   save_total_limit: 4  # limit the total amount of checkpoints and deletes the older checkpoints
   load_best_model_at_end: True
-  metric_for_best_model: "mean_roc_auc"
-  greater_is_better: True
+  metric_for_best_model: "loss"
+  greater_is_better: False
 
 # Model Settings, see https://huggingface.co/docs/transformers/model_doc/graphormer#transformers.GraphormerConfig
 model_args:
@@ -62,5 +65,5 @@ model_args:
   pre_layernorm: False # Apply layernorm before self attention and the feed forward network. Without this, post layernorm will be used.
 
 evaluation_args:
-  early_stopping_patience: 2000
-  early_stopping_threshold: 0.01
+  early_stopping_patience: 200
+  early_stopping_threshold: 0.0025
