@@ -149,7 +149,7 @@ def regression_metrics(eval_pred: tuple, label_names, target_scaler):
             mse = np.mean(np.square(masked_logits - masked_labels))
             mae = np.mean(np.abs(masked_logits - masked_labels))
             return_metrics[f"{label_name}_unscaled_mse"] = mse
-            return_metrics[f"{label_name}_unscaled_mae"] = mse
+            return_metrics[f"{label_name}_unscaled_mae"] = mae
 
     return return_metrics
 
