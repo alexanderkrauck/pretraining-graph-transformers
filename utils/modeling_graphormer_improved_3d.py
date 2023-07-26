@@ -33,8 +33,12 @@ class GaussianLayer(nn.Module):
         self.gaussian_size, hidden_size = config.gaussian_size, config.hidden_size
         self.means = nn.Embedding(1, self.gaussian_size)
         self.stds = nn.Embedding(1, self.gaussian_size)
-        self.mul = nn.Linear(hidden_size, 1)  # NOTE: this is changed from the original
-        self.bias = nn.Linear(hidden_size, 1)
+        if config.multi_node_features:
+            self.mul = nn.Linear(hidden_size, 1)  # NOTE: this is changed from the original
+            self.bias = nn.Linear(hidden_size, 1)
+        else:
+            self.mul = nn.Embedding(config.num_atoms**2, 1)
+            self.bias = nn.Embedding(config.num_atoms**2, 1)
         nn.init.uniform_(self.means.weight, 0, 3)
         nn.init.uniform_(self.stds.weight, 0, 3)
         nn.init.constant_(self.bias.weight, 0)
@@ -209,9 +213,13 @@ class Graphormer3DGraphEncoder(nn.Module):
         self.embedding_dim = config.embedding_dim
         self.apply_graphormer_init = config.apply_graphormer_init
         self.traceable = config.traceable
+        self.multi_node_features = config.multi_node_features
 
         self.input_graph_node_feature = GraphormerGraphNodeFeature(config)
-        self.output_graph_node_feature = GraphormerGraphNodeFeature(config)
+        if self.multi_node_features:
+            self.output_graph_node_feature = GraphormerGraphNodeFeature(config)
+        else:
+            self.num_atoms = config.num_atoms
         self.graph_attn_bias = GraphormerGraphAttnBias(config)
 
         self.gbf = GaussianLayer(config)
@@ -286,13 +294,20 @@ class Graphormer3DGraphEncoder(nn.Module):
         delta_pos /= dist.unsqueeze(-1) + 1e-5
 
         input_graph_node_embedding = self.input_graph_node_feature(input_nodes)
+        if self.multi_node_features:
 
-        edge_type_embeddings = input_graph_node_embedding[:, 1:].view(
-            n_graph, n_node, 1, -1
-        ) + self.output_graph_node_feature(input_nodes, add_graph_token=False).view(
-            n_graph, 1, n_node, -1
-        )
-        gbf_features = self.gbf(dist, edge_type_embeddings)
+            edge_type_embeddings = input_graph_node_embedding[:, 1:].view(
+                n_graph, n_node, 1, -1
+            ) + self.output_graph_node_feature(input_nodes, add_graph_token=False).view(
+                n_graph, 1, n_node, -1
+            )
+            gbf_features = self.gbf(dist, edge_type_embeddings)
+
+
+        else:
+            edge_type = input_nodes[:,:,0].view(n_graph, n_node, 1) * self.num_atoms + input_nodes[:,:,0].view(n_graph, 1, n_node)
+            gbf_features = self.gbf(dist, edge_type)
+
 
         clf_gbf_repeated_input = self.clf_gbf_feature.unsqueeze(0).repeat(
             input_nodes.shape[0], input_nodes.shape[1], 1, 1
@@ -300,7 +315,6 @@ class Graphormer3DGraphEncoder(nn.Module):
         clf_gbf_repeated_output = self.clf_gbf_feature.unsqueeze(0).repeat(
             input_nodes.shape[0], 1, input_nodes.shape[1] + 1, 1
         )
-
         gbf_features = torch.cat([clf_gbf_repeated_input, gbf_features], dim=2)
         gbf_features = torch.cat([clf_gbf_repeated_output, gbf_features], dim=1)
 
@@ -308,7 +322,7 @@ class Graphormer3DGraphEncoder(nn.Module):
             padding_mask.unsqueeze(1).unsqueeze(-1), 0.0
         )
         graph_node_feature = input_graph_node_embedding
-        +self.edge_proj(  # NOTE: maybe don't share the same embadding?
+        +self.edge_proj(  # NOTE: maybe don't share the same embedding?
             edge_features.sum(dim=-2)
         )
 
@@ -649,9 +663,20 @@ class Graphormer3DForPretraining(
 
 
 class Graphormer3DConfig(BetterGraphormerConfig):
-    def __init__(self, gaussian_size: int = 128, noise_std: float = 0.1, **kwargs):
+    def __init__(self, gaussian_size: int = 128, noise_std: float = 0.1, multi_node_features: bool = True, **kwargs):
+        """
+        
+        Parameters
+        ----------
+        gaussian_size : int, optional
+            The size of the gaussian kernel used for the gaussian layer, by default 128
+        noise_std : float, optional
+            The standard deviation of the noise added during pretraining for the noise prediction task, by default 0.1
+        multi_node_features : bool, optional
+            Whether to use multiple node features, or just one as in the original Graphormer3D, by default True
+        """
         super().__init__(**kwargs)
 
         self.gaussian_size = gaussian_size
         self.noise_std = noise_std
-        
+        self.multi_node_features = multi_node_features

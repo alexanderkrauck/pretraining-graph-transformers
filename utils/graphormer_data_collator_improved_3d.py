@@ -101,6 +101,7 @@ class Graphormer3DDataCollator:
         self.pretraining_method = model_config.pretraining_method
         self.noise_std = model_config.noise_std
         self.classification_task = model_config.classification_task
+        self.multi_node_features = model_config.multi_node_features
         self.target_scaler = target_scaler
 
     def __call__(self, features: List[dict]) -> Dict[str, Any]:
@@ -188,6 +189,11 @@ class Graphormer3DDataCollator:
             elif self.pretraining_method == "noise_prediction":
                 batch["pos"] = batch["pos"] + noise3d
                 batch["labels"] = torch.norm(noise3d, dim=-1)
+            
+        if not self.multi_node_features:
+            batch["input_nodes"] = batch["input_nodes"][:,:,0].unsqueeze(-1)
+            if self.collator_mode == "pretraining" and self.pretraining_method == "mask_prediction":
+                batch["labels"] = batch["labels"][:,0].unsqueeze(-1)
 
         if self.collator_mode == "classification":
             sample = features[0]["labels"]
