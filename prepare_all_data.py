@@ -1,3 +1,16 @@
+#!/usr/bin/python
+"""This script provides the ability to download and preprocess all datasets used in the project so experiments can be run.
+
+Copyright (c) 2023 Alexander Krauck
+
+This code is distributed under the MIT license. See LICENSE.txt file in the 
+project root for full license information.
+"""
+
+__author__ = "Alexander Krauck"
+__email__ = "alexander.krauck@gmail.com"
+__date__ = "2023-05-20"
+
 import os
 from utils import preprocessing as preprocessing_utils
 from utils import ZincWithRDKit

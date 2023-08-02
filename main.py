@@ -2,7 +2,13 @@
 """This script provides the main entry point for training and evaluating the Graphormer model 
 on a given dataset. It handles the preparation of the dataset, the creation and configuration 
 of the model, and the setup of the training process, including logging and the application of a 
-random seed for reproducibility."""
+random seed for reproducibility.
+
+Copyright (c) 2023 Alexander Krauck
+
+This code is distributed under the MIT license. See LICENSE.txt file in the 
+project root for full license information.
+"""
 
 __author__ = "Alexander Krauck"
 __email__ = "alexander.krauck@gmail.com"
