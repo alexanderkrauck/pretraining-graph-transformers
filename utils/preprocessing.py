@@ -26,12 +26,25 @@ from datasets import Dataset, Value, Features, Sequence, load_from_disk, Dataset
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import rdkit.RDLogger as RDLogger
+from rdkit.Chem.rdDistGeom import GetMoleculeBoundsMatrix
+from rdkit.Chem import rdMolTransforms
+import numpy as np
+
 
 import pandas as pd
 
 from typing import Optional, List
 
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
+
+from transformers.utils import is_cython_available, requires_backends
+
+
+if is_cython_available():
+    import pyximport
+
+    pyximport.install(setup_args={"include_dirs": np.get_include()})
+    from transformers.models.graphormer import algos_graphormer  # noqa E402
 
 x_map = {
     "atomic_num": list(range(0, 119)),
@@ -444,7 +457,12 @@ def get_arrow_features(
     return Features(features_dict)
 
 
-def process_molecule(mol: Chem.Mol, include_conformer: bool = True):
+def process_molecule(
+    mol: Chem.Mol,
+    include_conformer: bool = True,
+    generate_bounds: bool = False,
+    n_bound_hops: int = 2,
+):
     """
     Process an RDKit molecule and extract features for graph representation.
 
@@ -454,6 +472,10 @@ def process_molecule(mol: Chem.Mol, include_conformer: bool = True):
         The RDKit molecule object to process.
     include_conformer: bool
         Whether to include the 3D conformer of the molecule.
+    generate_bounds: bool
+        Whether to generate the bounds for the molecule.
+    n_bound_hops: int
+        The number of hops to generate bounds for.
 
     Returns
     -------
@@ -506,7 +528,114 @@ def process_molecule(mol: Chem.Mol, include_conformer: bool = True):
 
     return_dict["num_nodes"] = len(return_dict["node_feat"])
     return_dict["edge_index"] = [edge_indices_send, edge_indices_rec]
+
+    if generate_bounds:
+        adj = Chem.rdmolops.GetAdjacencyMatrix(mol)
+        shortest_path_result, path = algos_graphormer.floyd_warshall(adj)
+        return_dict["shortest_path_result"] = shortest_path_result
+        return_dict["path"] = path
+        return_dict["distance_bounds"] = GetMoleculeBoundsMatrix(mol)
+        triplet, cosine_bounds = generate_angle_bounds(
+            mol, return_dict["distance_bounds"], n_bound_hops, do_conformer=False
+        )
+        return_dict["triplet"] = triplet
+        return_dict["cosine_bounds"] = cosine_bounds
+
     return return_dict
+
+
+def generate_angle_bounds(
+    mol, bounds, shortest_path_distance, n_hops=5, do_conformer=False
+):
+    """
+    Generate angle bounds for a molecule.
+
+    Parameters:
+    mol: RDKit molecule object
+    bounds: Distance bounds matrix of shape (num_atoms, num_atoms)
+    shortest_path_distance: Shortest path distance matrix of shape (num_atoms, num_atoms)
+    n_hops: Number of hops to generate bounds for
+
+    Returns:
+    angle_bounds: List of angle bounds for each triplet of atoms
+    """
+
+    # Initialize a list to store the indices of the triplets
+    triplets = []
+    actual_angles = []
+
+    # Loop over the atoms in the molecule
+    for atom_i in mol.GetAtoms():
+        i = atom_i.GetIdx()
+
+        atoms_within_n_hops = np.where(
+            (shortest_path_distance[i] <= n_hops) & (shortest_path_distance[i] > 0)
+        )[0]
+        # Loop over the neighbors of the atom
+        for j in atoms_within_n_hops:
+            # Loop over the other neighbors of the atom
+            for k in atoms_within_n_hops:
+                # Skip the case where the neighbor is the same as the previous neighbor, or where the neighbor index is less than or equal to the previous neighbor index
+                if k <= j:
+                    continue
+
+                j, k = int(j), int(k)
+                # Add the triplet to the list
+                triplets.append([i, j, k])
+
+                if mol.GetNumConformers() != 0 and do_conformer:
+                    actual_angle = rdMolTransforms.GetAngleRad(
+                        mol.GetConformer(0), j, i, k
+                    )
+                    actual_angles.append(actual_angle)
+
+    # Convert the list of triplets to a numpy array
+    if len(triplets) == 0:
+        if do_conformer:
+            return np.zeros((0, 3)), np.zeros((0, 3))
+        else:
+            return np.zeros((0, 3)), np.zeros((0, 2))
+
+    triplets = np.array(triplets)
+    if mol.GetNumConformers() != 0:
+        actual_angles = np.array(actual_angles)
+
+    # Extract the distance bounds for the sides of the triangle
+    a_min_values = np.minimum(
+        bounds[triplets[:, 0], triplets[:, 1]], bounds[triplets[:, 1], triplets[:, 0]]
+    )
+    a_max_values = np.maximum(
+        bounds[triplets[:, 0], triplets[:, 1]], bounds[triplets[:, 1], triplets[:, 0]]
+    )
+    b_min_values = np.minimum(
+        bounds[triplets[:, 0], triplets[:, 2]], bounds[triplets[:, 2], triplets[:, 0]]
+    )
+    b_max_values = np.maximum(
+        bounds[triplets[:, 0], triplets[:, 2]], bounds[triplets[:, 2], triplets[:, 0]]
+    )
+    c_min_values = np.minimum(
+        bounds[triplets[:, 1], triplets[:, 2]], bounds[triplets[:, 2], triplets[:, 1]]
+    )
+    c_max_values = np.maximum(
+        bounds[triplets[:, 1], triplets[:, 2]], bounds[triplets[:, 2], triplets[:, 1]]
+    )
+
+    # Calculate the minimum and maximum possible cosines for each vertex of the triangle
+    # Note that this can contain values outside of [-1, 1] because of how the bounds matrix is calculated
+    gamma_min_values = (a_min_values**2 + b_min_values**2 - c_max_values**2) / (
+        2 * a_min_values * b_min_values
+    )
+    gamma_max_values = (a_max_values**2 + b_max_values**2 - c_min_values**2) / (
+        2 * a_max_values * b_max_values
+    )
+
+    to_stack = [gamma_min_values[:, None], gamma_max_values[:, None]]
+    if mol.GetNumConformers() != 0 and do_conformer:
+        to_stack.append(np.cos(np.array(actual_angles)[:, None]))
+    # Combine the indices and angle bounds into a single array
+    angle_bounds = np.hstack(to_stack)
+
+    return triplets, angle_bounds
 
 
 def map_arrow_dataset_from_disk(dataset_location: str, is_dataset_dict: bool = False):
