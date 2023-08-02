@@ -11,6 +11,6 @@ If you use anything from this repository than please cite
     year = {2023},
     publisher = {GitHub},
     journal = {GitHub repository},
-    howpublished = {\url{https://github.com/alexanderkrauck/pretrained-graph-transformer}},
+    howpublished = {\url{https://github.com/alexanderkrauck/pretraining-graph-transformers}},
 }
 ```
