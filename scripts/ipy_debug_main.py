@@ -6,15 +6,22 @@ from main import main
 import time
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+import utils.data as data_utils
 
 #%%
 name = "*time*_test_pretrain"
 logdir = "runs"
-yaml_file="configs/fix_leak.yml"
-from_pretrained = None
+yaml_file="configs/zinc_run_without_pretrain_3d.yml"
+from_pretrained = "/home/alexander/server_runs/19-07-2023_19-32-24_124_zinc_run_3d_no_pretrain/checkpoints/checkpoint-165500"
+model_type = "graphormer3d"
 
 # %%
-trainer = main(name = name, logdir = logdir, yaml_file=yaml_file, return_trainer_instead=True)
+trainer = main(name = name, logdir = logdir, yaml_file=yaml_file, model_type=model_type, return_trainer_instead=True, from_pretrained=from_pretrained)
+#%%
+dataset = data_utils.prepare_dataset_for_training(False, seed=42, memory_mode="full", dataset_name = "ZINC", data_dir="data/", model_type="graphormer3d")
+#%%
+trainer.evaluate(dataset["test"])
+
 #%%
 dl = trainer.get_train_dataloader()
 #%%
@@ -188,3 +195,17 @@ test_results = {f"test_{k}": v for k, v in test_results.items()}
 
 # Log the results
 wandb.log(test_results)
+
+
+#%%
+import wandb
+
+# turn off watch to log faster
+os.environ["WANDB_WATCH"]="false"
+os.environ["WANDB_LOG_MODEL"]="true"
+
+
+
+wandb.init(project = "test", name="test21", dir=os.path.join("test_stuff", "wandb"))
+
+# %%

@@ -5,7 +5,7 @@ import os
 
 os.chdir("..")
 
-from utils import data as data_utils
+from utils import preprocessing as preprocessing_utils
 import torch_geometric as pyg
 from utils import ZincWithRDKit
 from datasets import DatasetDict, load_from_disk, IterableDataset
@@ -108,13 +108,13 @@ del zinc
 # Here start the data processing to arrow format
 
 # %%
-ds = data_utils.sdf_to_arrow(
+ds = preprocessing_utils.sdf_to_arrow(
     join(data_dir, "pcqm4mv2/raw/pcqm4m-v2-train.sdf"),
     to_disk_location=join(data_dir, "pcqm4mv2/processed/arrow"),
 )
 
 # %%
-ds_train = data_utils.sdf_to_arrow(
+ds_train = preprocessing_utils.sdf_to_arrow(
     join(data_dir, "tox21_original/raw/tox21.sdf"),
     to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
     target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -122,7 +122,7 @@ ds_train = data_utils.sdf_to_arrow(
     split_column=4,
     take_split="training",
 )
-ds_val = data_utils.sdf_to_arrow(
+ds_val = preprocessing_utils.sdf_to_arrow(
     join(data_dir, "tox21_original/raw/tox21.sdf"),
     to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
     target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -130,7 +130,7 @@ ds_val = data_utils.sdf_to_arrow(
     split_column=4,
     take_split="validation",
 )
-ds_test = data_utils.sdf_to_arrow(
+ds_test = preprocessing_utils.sdf_to_arrow(
     join(data_dir, "tox21_original/raw/tox21.sdf"),
     to_disk_location=join(data_dir, "tox21_original/processed/arrow"),
     target_columns=[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -148,16 +148,17 @@ dataset_dict = DatasetDict(
 )
 dataset_dict.save_to_disk(join(data_dir, "tox21_original/processed/arrow"))
 # %%
-ds = data_utils.csv_to_arrow(
+ds = preprocessing_utils.csv_to_arrow(
     join(data_dir, "tox21/raw/tox21.csv"),
-    to_disk_location=join(data_dir, "tox21/processed/arrow"),
-    include_conformer=True,
+    to_disk_location=join(data_dir, "tox21/processed/arrow_no3d"),
+    include_conformer=False,
+    target_columns = [0,1,2,3,4,5,6,7,8,9,10,11],
     id_column=12,
 )
 
 
 # %%
-ds = data_utils.sdf_to_arrow(
+ds = preprocessing_utils.sdf_to_arrow(
     join(data_dir, "qm9/raw/gdb9.sdf"),
     to_disk_location=join(data_dir, "qm9/processed/arrow"),
     csv_with_metainfo=join(data_dir, "qm9/raw/gdb9.sdf.csv"),
@@ -167,21 +168,21 @@ ds = data_utils.sdf_to_arrow(
 # %%
 zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="train")
 mol_list = zinc.to_rdkit_molecule_list()
-ds_train = data_utils.rdkit_to_arrow(
+ds_train = preprocessing_utils.rdkit_to_arrow(
     mol_list,
     target_list=zinc.y.numpy().tolist(),
 )
 
 zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="val")
 mol_list = zinc.to_rdkit_molecule_list()
-ds_val = data_utils.rdkit_to_arrow(
+ds_val = preprocessing_utils.rdkit_to_arrow(
     mol_list,
     target_list=zinc.y.numpy().tolist(),
 )
 
 zinc = ZincWithRDKit(join(data_dir, "ZINC"), subset=True, split="test")
 mol_list = zinc.to_rdkit_molecule_list()
-ds_test = data_utils.rdkit_to_arrow(
+ds_test = preprocessing_utils.rdkit_to_arrow(
     mol_list,
     target_list=zinc.y.numpy().tolist(),
 )
@@ -197,40 +198,13 @@ dataset_dict = DatasetDict(
 dataset_dict.save_to_disk(join(data_dir, "ZINC/processed/arrow"))
 
 # %%
-ds = data_utils.csv_to_arrow(
+ds = preprocessing_utils.csv_to_arrow(
     join(data_dir, "pcba/raw/pcba.csv"),
     include_conformer=False,  # NOTE: for now because its very slow
     to_disk_location=join(data_dir, "pcba/processed/arrow"),
     smiles_column=-1,
     id_column=-2,
     target_columns=list(range(0, 128)),
-)
-
-# Here start the mapping of the data to input format to the model
-
-# %%
-data_utils.map_arrow_dataset_from_disk(
-    join(data_dir, "pcqm4mv2/processed"), is_dataset_dict=False
-)
-# %%
-data_utils.map_arrow_dataset_from_disk(
-    join(data_dir, "tox21_original/processed"), is_dataset_dict=True
-)
-# %%
-data_utils.map_arrow_dataset_from_disk(
-    join(data_dir, "tox21/processed"), is_dataset_dict=False
-)
-# %%
-data_utils.map_arrow_dataset_from_disk(
-    join(data_dir, "qm9/processed"), is_dataset_dict=False
-)
-# %%
-data_utils.map_arrow_dataset_from_disk(
-    join(data_dir, "ZINC/processed"), is_dataset_dict=True
-)
-# %%
-data_utils.map_arrow_dataset_from_disk(
-    join(data_dir, "pcba/processed"), is_dataset_dict=False
 )
 
 
@@ -246,9 +220,9 @@ collator = graphormer_collator_utils.GraphormerDataCollator()
 collator([proc1, proc2])
 
 # %% Test for batching, dataset and collator with focus on execution time
-collator = graphormer_collator_utils.GraphormerDataCollator()
+#collator = graphormer_collator_utils.GraphormerDataCollator()
 #dataset_path =  "/home/alexander/temp/ZINC/processed/arrow"
-dataset_path =  "data/pcqm4mv2/processed/arrow"
+dataset_path =  "data/qm9/processed/arrow"
 #dataset_path =  "data/ZINC/processed/arrow_processed"
 dataset = load_from_disk(
     dataset_path, keep_in_memory=False
@@ -265,20 +239,34 @@ batch_size = 256
 #dataset = dataset.shuffle()
 
 #%% random index data
-_start = time.time()
-n = batch_size * tot_batches
-for i in np.random.default_rng(43).integers(0, len(dataset), size=n):
-    _ = dataset[int(i)]
-print((time.time() - _start)/tot_batches)
+n_tests = 20
+times = []
+
+for t in tqdm(range(n_tests)):
+    _start = time.time()
+    #dataset.set_format(type="numpy", columns=list(dataset.column_names))
+    for i in np.random.default_rng(t).integers(0, len(dataset), size=batch_size):
+        dat = dataset[int(i)]
+        #for col in dataset.column_names:
+        #    _ = np.array(dat[col])
+        #np.array(dataset[int(i)]["input_edges"])
+    delta = time.time() - _start
+    print(f"{t}: {delta}s")
+    times.append(delta)
+print(f"mean: {np.mean(times)}\nstd: {np.std(times)}")
 #%% only loading
 batches = []
 for e in tqdm(range(tot_batches)):
     data_batch = [dataset[(i + e * batch_size) % dataset_size] for i in range(batch_size)]
     batches.append(data_batch)
 #%% only loading
-samples = []
-for i in tqdm(range(100 * batch_size)):
-    samples.append(dataset[i + 1000000])
+true_max = 0
+for i in tqdm(range(dataset_size)):
+    sample_max = max(max(dataset[i]["node_feat"]))
+    if sample_max > true_max:
+        true_max = sample_max
+        print(true_max, i)
+    #samples.append(dataset[i + 1000000])
 #%% only loading and preparing (for not processed arrow) no collater
 batches = []
 for e in tqdm(range(tot_batches)):
@@ -324,4 +312,34 @@ collator = graphormer_collator_utils.GraphormerDataCollator(on_the_fly_processin
 for batch in tqdm(batches):
 
     collator(batch)
+# %%
+def get_feature_sets(dataset):
+    sets = {}
+    sample = dataset[0]
+    node_feat = np.array(sample["node_feat"])
+    for j in range(9):
+        sets[j] = set(node_feat[:, j])
+    for i in tqdm(range(1, len(dataset))):
+        sample = dataset[i]
+        node_feat = np.array(sample["node_feat"])
+        for j in range(9):
+            sets[j] = sets[j].union(node_feat[:, j])
+
+    return sets
+
+dataset_feature_sets = {}
+for dataset_name in ["tox21", "tox21_original", "pcba", "qm9", "ZINC", "pcqm4mv2"]:
+    dataset_path = "data/"+dataset_name+"/processed/arrow"
+    if dataset_name in ["tox21", "pcba", "qm9", "pcqm4mv2"]:
+        dataset = load_from_disk(
+            dataset_path, keep_in_memory=False
+        )
+        dataset_feature_sets[dataset_name] = get_feature_sets(dataset)
+    else:
+        dataset_dict = DatasetDict.load_from_disk(dataset_path, keep_in_memory=False)
+        for dataset_key in dataset_dict.keys():
+            dataset_feature_sets[dataset_name +"_"+dataset_key] = get_feature_sets(dataset_dict[dataset_key])
+
+# %%
+dataset_feature_sets
 # %%

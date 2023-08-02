@@ -16,6 +16,10 @@ from transformers import (
     TrainingArguments,
 )
 
+from utils.modeling_graphormer_improved_3d import Graphormer3DForGraphClassification
+from utils.graphormer_data_collator_improved_3d import Graphormer3DDataCollator   
+
+
 # Local application imports
 from utils import data as data_utils
 from utils import graphormer_data_collator_improved as graphormer_collator_utils
@@ -23,12 +27,10 @@ from utils import setup as setup_utils
 from utils import evaluate as evaluate_utils
 
 #%%
-data_dir = "/system/user/publicwork/student/krauck/graph_data/"
-model = GraphormerForGraphClassification.from_pretrained("/system/user/publicwork/student/krauck/graph_data/runs/07-06-2023_12-27-56_zinc_no_pretrain/checkpoints/checkpoint-18000")
+data_dir = "data"
 
 # %%
-dataset = data_utils.prepare_dataset_for_training(
-        False, dataset_name = "ZINC", data_dir=data_dir)
+dataset = data_utils.prepare_dataset_for_training(False, seed=42, memory_mode="full", dataset_name = "ZINC", data_dir=data_dir, model_type="graphormer3d")
 evaluation_func = evaluate_utils.prepare_evaluation_for_training(
         False, dataset_name = "ZINC"
     )
@@ -43,13 +45,15 @@ training_args = TrainingArguments(
     logging_dir='./logs',
     report_to = []            # directory for storing logs
 )
-
+#%%
 # Specify the Trainer
+model = Graphormer3DForGraphClassification.from_pretrained("/home/alexander/24-07-2023_02-57-46_55_ZINC_finetune_3d_noise_as_paper/checkpoints/checkpoint-70000/")
+
 trainer = Trainer(
     model=model,                         # the instantiated 🤗 Transformers model to be trained
     args=training_args,                  # training arguments, defined above
     compute_metrics=evaluation_func,
-    data_collator=graphormer_collator_utils.GraphormerDataCollator(num_edge_features=3),
+    data_collator=Graphormer3DDataCollator(model_config=model.config, on_the_fly_processing=False, collator_mode="classification"),
                # evaluation dataset
 )
 
