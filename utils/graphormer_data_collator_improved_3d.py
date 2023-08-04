@@ -124,16 +124,12 @@ class Graphormer3DDataCollator:
         batch_size = len(features)
 
 
-        # Create tensor for edge attribute (type) data
-
-        # Create tensor for spatial position data (shortest path distance)
  
         # Create tensor for node feature data
         batch["input_nodes"] = torch.zeros(
             batch_size, max_node_num, node_feat_size, dtype=torch.long
         )
         batch["pos"] = torch.zeros(batch_size, max_node_num, 3, dtype=torch.float64)
-        # NOTE: Here again input edges which is huge. not sure yet why.
 
 
         n_node_list = []
@@ -156,12 +152,10 @@ class Graphormer3DDataCollator:
             n_nodes = f_input_nodes.shape[0]
             n_node_list.append(n_nodes)
 
-                # so all that are above the max are set to -inf #TODO: f["attn_bias"] is completely useless. you can just use the spatial pos
-            # TODO: this is all square matrices so we could just use one dim
+                # so all that are above the max are set to -inf 
 
             batch["input_nodes"][ix, :n_nodes] = f_input_nodes
             batch["pos"][ix, :n_nodes] = f_pos
-            # TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
             
 
             if self.collator_mode == "pretraining":

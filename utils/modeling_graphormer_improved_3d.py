@@ -541,7 +541,7 @@ class Graphormer3DForGraphClassification(GraphormerPreTrainedModel):
 
 class Graphormer3DForPretraining(
     GraphormerPreTrainedModel
-):  # TODO check the GraphormerPreTrainedModel class and see if it is necessary to use it
+):  
     """
     This model can be used for pretraining the Graphormer model.
 
@@ -561,7 +561,7 @@ class Graphormer3DForPretraining(
 
         if (
             self.pretraining_method == "mask_prediction"
-        ):  # TODO: consider using an own embedding for each property of atoms. (might be better)
+        ):  # NOTE: consider using an own embedding for each property of atoms. (might be better)
             self.mask_prob = config.mask_prob
             if self.reconstruction_method == "index_prediction":
                 self.decoders = nn.ModuleList(
@@ -616,7 +616,7 @@ class Graphormer3DForPretraining(
             masked_outputs = outputs[mask]
 
             # Decode the masked input
-            if self.reconstruction_method == "index_prediction":  # TODO: test this
+            if self.reconstruction_method == "index_prediction":  
                 decoded_masked_outputs_logits = torch.stack(
                     [decoder(masked_outputs) for decoder in self.decoders], dim=1
                 ).transpose(1,2)
@@ -638,7 +638,7 @@ class Graphormer3DForPretraining(
                     decoded_masked_outputs_logits,
                     embedded_target,
                 ) #TODO: need regularization here, otherwise all embeddings will converge to a single value
-        # NOTE: possibly assert that outputs on second dim are the same size as input_nodes on second dim
+
             return {
                 "loss": loss,
                 "outputs": outputs,

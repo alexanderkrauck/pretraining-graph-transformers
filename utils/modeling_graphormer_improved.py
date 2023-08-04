@@ -9,7 +9,18 @@ For the original license, see LICENSE_HUGGINGFACE.txt in the project root.
 For the modified license, see LICENSE.txt in the project root.
 
 Details of the modifications:
-TODO
+Most classes are modified to some degree with improvements in efficiency and readability.
+Modified classes:
+- GraphormerNodeFeature
+- GraphormerGraphAttnBias
+- GraphormerMultiheadAttention
+- GraphormerForGraphClassification
+- GraphormerModel
+- GraphormerGraphEncoderLayer
+- GraphormerGraphEncoder
+Completely new classes:
+- GraphormerForPretraining
+- BetterGraphormerConfig
 """
 
 import math
@@ -1009,7 +1020,7 @@ class GraphormerForGraphClassification(GraphormerPreTrainedModel):
 
 class GraphormerForPretraining(
     GraphormerPreTrainedModel
-):  # TODO check the GraphormerPreTrainedModel class and see if it is necessary to use it
+):  
     """
     This model can be used for pretraining the Graphormer model.
 
@@ -1029,7 +1040,7 @@ class GraphormerForPretraining(
 
         if (
             self.pretraining_method == "mask_prediction"
-        ):  # TODO: consider using an own embedding for each property of atoms. (might be better)
+        ):  # Note: consider using an own embedding for each property of atoms. (might be better)
             self.mask_prob = config.mask_prob
             if self.reconstruction_method == "index_prediction":
                 self.decoders = nn.ModuleList(
@@ -1088,7 +1099,7 @@ class GraphormerForPretraining(
             masked_outputs = outputs[mask]
 
             # Decode the masked input
-            if self.reconstruction_method == "index_prediction":  # TODO: test this
+            if self.reconstruction_method == "index_prediction":  
                 decoded_masked_outputs_logits = torch.stack(
                     [decoder(masked_outputs) for decoder in self.decoders], dim=1
                 ).transpose(1,2)
@@ -1110,7 +1121,7 @@ class GraphormerForPretraining(
                     decoded_masked_outputs_logits,
                     embedded_target,
                 ) #TODO: need regularization here, otherwise all embeddings will converge to a single value
-        # NOTE: possibly assert that outputs on second dim are the same size as input_nodes on second dim
+
         return {
             "loss": loss,
             "outputs": outputs,

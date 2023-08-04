@@ -116,7 +116,6 @@ def preprocess_item(
     item["spatial_pos"] = (
         shortest_path_result.astype(np.int64) + 1
     )  # we shift all indices by one for padding
-    # TODO: Add option whether to use the in_degree/out_degree or not.
 
     item["input_edges"] = input_edges + 1  # we shift all indices by one for padding
 
@@ -187,7 +186,7 @@ class GraphormerDataCollator:
         max_node_num = max(len(i["input_nodes"]) for i in features)
         node_feat_size = len(features[0]["input_nodes"][0])
         max_dist = max(len(i["input_edges"][0][0]) for i in features)
-        # TODO maybe remove this if check
+
         if self.num_edge_features is None:
             num_edge_features = features[0]["input_edges"].shape[-1]
         else:
@@ -246,15 +245,14 @@ class GraphormerDataCollator:
 
             above_max = f_spatial_pos >= self.spatial_pos_max
             if torch.sum(above_max) > 0:
-                # so all that are above the max are set to -inf #TODO: f["attn_bias"] is completely useless. you can just use the spatial pos
+                # so all that are above the max are set to -inf #NOTE: f["attn_bias"] is completely useless. you can just use the spatial pos
                 f_attn_bias[1:, 1:][above_max] = float("-inf")
-            # TODO: this is all square matrices so we could just use one dim
 
             batch["attn_bias"][ix, : n_nodes + 1, : n_nodes + 1] = f_attn_bias
             batch["attn_edge_type"][ix, :n_nodes, :n_nodes] = f_attn_edge_type
             batch["spatial_pos"][ix, :n_nodes, :n_nodes] = f_spatial_pos
             batch["input_nodes"][ix, :n_nodes] = f_input_nodes
-            # TODO: this if check sorts out graphs without any edges that are in bad format. Maybe remove later.
+
             if (
                 batch["input_edges"][ix, :n_nodes, :n_nodes, :max_dist].shape
                 == f_input_edges.shape
