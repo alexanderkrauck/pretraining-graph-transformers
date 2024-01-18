@@ -2,6 +2,8 @@
 
 Implementation of pretraining methods for Graph Transformers. In particular for Graphormer. Moreover, an improved version of Graphormer3D that can utilize multiple node features. The pretained models perform superior to the models trained from scratch.
 
+A detailed explanation can be found within my Bachelor's thesis `Pretraining_Graph_Transformers__Bachelors_Thesis.pdf` in the source directory.
+
 If you use anything from this repository than please cite
 
 ```bibtex
